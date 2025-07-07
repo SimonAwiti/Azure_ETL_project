@@ -47,3 +47,10 @@ variable "storage_subnet_address" {
   description = "Address space for the storage subnet"
   default     = ["10.0.3.0/24"]
 }
+#Resourses
+
+variable "storage_account_name" {
+  description = "Name of the storage account"
+  default     = "radatalake"
+}
+

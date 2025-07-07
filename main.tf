@@ -115,3 +115,49 @@ resource "azurerm_subnet_network_security_group_association" "storage" {
   subnet_id                 = azurerm_subnet.storage.id
   network_security_group_id = azurerm_network_security_group.storage_nsg.id
 }
+# Data Lake Storage (with storage subnet restriction)
+resource "azurerm_storage_account" "datalake" {
+  name                     = var.storage_account_name
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  account_kind             = "StorageV2"
+  is_hns_enabled           = true # Enable hierarchical namespace for Data Lake Gen2
+
+  network_rules {
+    default_action             = "Deny"
+    virtual_network_subnet_ids = [
+      azurerm_subnet.storage.id,    # Primary access from storage subnet
+      azurerm_subnet.analytics.id   # Allow Synapse to access
+    ]
+  }
+}
+
+resource "azurerm_storage_account" "datalake" {
+  name                     = var.storage_account_name
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  account_kind             = "StorageV2"
+  is_hns_enabled           = true # Enable hierarchical namespace for Data Lake Gen2
+
+  network_rules {
+    default_action             = "Deny"
+    virtual_network_subnet_ids = [azurerm_subnet.analytics.id, azurerm_subnet.app.id]
+  }
+}
+
+# Create containers for raw and curated zones
+resource "azurerm_storage_container" "raw" {
+  name                  = "raw"
+  storage_account_name  = azurerm_storage_account.datalake.name
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "curated" {
+  name                  = "curated"
+  storage_account_name  = azurerm_storage_account.datalake.name
+  container_access_type = "private"
+}
