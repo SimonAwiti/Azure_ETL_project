@@ -95,7 +95,7 @@ resource "azurerm_network_security_group" "storage_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "445"  # Required for Data Lake Gen2
-    source_address_prefix      = "Storage"  # Azure Service Tag
+    source_address_prefix      = "*"  
     destination_address_prefix = "*"
   }
 }
@@ -132,4 +132,16 @@ resource "azurerm_storage_account" "datalake" {
       azurerm_subnet.analytics.id   # Allow Synapse to access
     ]
   }
+}
+# Create containers for raw and curated zones
+resource "azurerm_storage_container" "raw" {
+  name                  = "raw"
+  storage_account_name  = azurerm_storage_account.datalake.name
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "curated" {
+  name                  = "curated"
+  storage_account_name  = azurerm_storage_account.datalake.name
+  container_access_type = "private"
 }
