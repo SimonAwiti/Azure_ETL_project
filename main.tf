@@ -133,22 +133,6 @@ resource "azurerm_storage_account" "datalake" {
     ]
   }
 }
-
-resource "azurerm_storage_account" "datalake" {
-  name                     = var.storage_account_name
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  account_kind             = "StorageV2"
-  is_hns_enabled           = true # Enable hierarchical namespace for Data Lake Gen2
-
-  network_rules {
-    default_action             = "Deny"
-    virtual_network_subnet_ids = [azurerm_subnet.analytics.id, azurerm_subnet.app.id]
-  }
-}
-
 # Create containers for raw and curated zones
 resource "azurerm_storage_container" "raw" {
   name                  = "raw"
