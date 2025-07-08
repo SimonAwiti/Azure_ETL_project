@@ -5,12 +5,12 @@ variable "location" {
 
 variable "resource_group_name" {
   description = "Name of the resource group"
-  default     = "ra-new-etl-pipeline-rg"
+  default     = "ra-new-etl-pipeline-rg1"
 }
 
 variable "vnet_name" {
   description = "Name of the virtual network"
-  default     = "ra-vnet"
+  default     = "ra-etl-vnet"
 }
 
 variable "vnet_address_space" {
@@ -52,5 +52,5 @@ variable "storage_subnet_address" {
 # Resources
 variable "storage_account_name" {
   description = "Name of the storage account"
-  default     = "ra-etl-datalake"
+  default     = "ra-etl-pipeline-datalake"
 }
