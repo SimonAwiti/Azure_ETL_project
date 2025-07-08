@@ -70,6 +70,7 @@ jobs:
 
     - name: Upload Plan Artifact
       if: github.event_name == 'pull_request' && steps.plan.outputs.PLAN_HAS_CHANGES == 'true'
+      
       uses: actions/upload-artifact@v4
       with:
         name: tfplan
