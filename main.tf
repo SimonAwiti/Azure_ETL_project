@@ -149,3 +149,29 @@ resource "azurerm_storage_container" "curated" {
   storage_account_name  = azurerm_storage_account.datalake.name
   container_access_type = "private"
 }
+
+resource "azurerm_service_plan" "function" {
+  name                = "function-app-service-plan"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  os_type             = "Linux"
+  sku_name            = "Y1" # Consumption plan
+}
+
+resource "azurerm_linux_function_app" "main" {
+  name                = var.function_app_name
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  service_plan_id     = azurerm_service_plan.function.id
+
+  storage_account_name       = azurerm_storage_account.datalake.name
+  storage_account_access_key = azurerm_storage_account.datalake.primary_access_key
+
+  site_config {
+    application_stack {
+      node_version = "18"
+    }
+  }
+
+  virtual_network_subnet_id = azurerm_subnet.app.id
+}
