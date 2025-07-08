@@ -28,12 +28,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
       with:
-        terraform_version: "1.5.7"
+        terraform_version: "latest"
         terraform_wrapper: false
 
     - name: Terraform Format
@@ -70,8 +70,8 @@ jobs:
 
     - name: Upload Plan Artifact
       if: github.event_name == 'pull_request' && steps.plan.outputs.PLAN_HAS_CHANGES == 'true'
-      
-      uses: actions/upload-artifact@v4
+
+      uses: actions/upload-artifact@v3
       with:
         name: tfplan
         path: plan.txt
