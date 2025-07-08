@@ -18,6 +18,7 @@ resource "azurerm_subnet" "analytics" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.analytics_subnet_address
+  service_endpoints    = ["Microsoft.Storage"]
 }
 
 resource "azurerm_subnet" "app" {
