@@ -52,5 +52,5 @@ variable "storage_subnet_address" {
 # Resources
 variable "storage_account_name" {
   description = "Name of the storage account"
-  default     = "radatalake"
+  default     = "ra-etl-datalake"
 }
