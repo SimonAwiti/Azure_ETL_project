@@ -5,7 +5,7 @@ variable "location" {
 
 variable "resource_group_name" {
   description = "Name of the resource group"
-  default     = "ra-etl-pipeline-rg"
+  default     = "ra-new-etl-pipeline-rg"
 }
 
 variable "vnet_name" {
