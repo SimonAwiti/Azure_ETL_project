@@ -40,15 +40,6 @@ An Azure ETL project that ingests data from **IoT sensors** and **user-facing ap
 - **DB Subnet**: Hosts Azure SQL DB, protected by DB-specific NSGs.
 - **Analytics Subnet**: Hosts Synapse workloads, protected by Synapse NSGs.
 
----
-
-## 📁 Updating the Architecture Diagram
-
-To replace or update the architecture image:
-1. Save the new image with the name:  
-   `Screenshot 2025-07-07 at 10.11.28 PM.png`
-2. Place it in the root of the repository.
-3. Git will automatically update it if replaced properly.
 
 ---
 
