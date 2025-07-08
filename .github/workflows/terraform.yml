@@ -11,6 +11,7 @@ env:
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  TF_CLI_ARGS: "-no-color" # Cleaner output
 
 jobs:
   terraform:
@@ -25,20 +26,40 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
       with:
-        terraform_version: 1.0.0
-
-    - name: Terraform Init
-      run: terraform init
+        terraform_version: "1.5.7"
+        terraform_wrapper: false
 
     - name: Terraform Format
-      run: terraform fmt -check
+      run: |
+        terraform fmt -recursive -check -diff
+        terraform fmt -recursive # Auto-format if needed
+
+    - name: Terraform Init
+      run: terraform init -upgrade
 
     - name: Terraform Validate
       run: terraform validate
 
     - name: Terraform Plan
-      run: terraform plan -input=false
+      id: plan
+      run: |
+        terraform plan -input=false -out=tfplan
+        echo "PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E '^[[:space:]]*#|Plan:')" >> $GITHUB_OUTPUT
+      continue-on-error: false
+
+    - name: Show Plan Summary
+      run: echo "${{ steps.plan.outputs.PLAN_SUMMARY }}"
 
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
-      run: terraform apply -auto-approve -input=false
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: terraform apply -auto-approve -input=false tfplan
+
+    - name: Post Apply Status
+      if: always() && github.ref == 'refs/heads/main'
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "Terraform apply completed successfully"
+        else
+          echo "Terraform apply failed"
+          exit 1
+        fi
