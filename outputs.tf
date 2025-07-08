@@ -13,9 +13,7 @@ output "subnet_ids" {
     storage   = azurerm_subnet.storage.id
   }
 }
-output "storage_subnet_name" {
-  value = azurerm_subnet.storage.name
-}
+
 output "storage_account_name" {
   value = azurerm_storage_account.datalake.name
 }

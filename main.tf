@@ -1,9 +1,10 @@
+# Resource Group
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
 }
 
-# Virtual Network and Subnets
+# Virtual Network
 resource "azurerm_virtual_network" "main" {
   name                = var.vnet_name
   address_space       = var.vnet_address_space
@@ -11,6 +12,7 @@ resource "azurerm_virtual_network" "main" {
   resource_group_name = azurerm_resource_group.main.name
 }
 
+# Subnets
 resource "azurerm_subnet" "analytics" {
   name                 = var.analytics_subnet_name
   resource_group_name  = azurerm_resource_group.main.name
@@ -30,7 +32,7 @@ resource "azurerm_subnet" "storage" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.storage_subnet_address
-  service_endpoints    = ["Microsoft.Storage"] # Critical for Data Lake access
+  service_endpoints    = ["Microsoft.Storage"]
 }
 
 # Network Security Groups
@@ -88,19 +90,19 @@ resource "azurerm_network_security_group" "storage_nsg" {
   resource_group_name = azurerm_resource_group.main.name
 
   security_rule {
-    name                       = "AllowStorageServiceTag"
+    name                       = "AllowStorageService"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "445"  # Required for Data Lake Gen2
-    source_address_prefix      = "*"  
+    destination_port_range     = "445"
+    source_address_prefix      = "Storage"
     destination_address_prefix = "*"
   }
 }
 
-# Associate NSGs with Subnets
+# NSG Associations
 resource "azurerm_subnet_network_security_group_association" "analytics" {
   subnet_id                 = azurerm_subnet.analytics.id
   network_security_group_id = azurerm_network_security_group.analytics_nsg.id
@@ -115,25 +117,26 @@ resource "azurerm_subnet_network_security_group_association" "storage" {
   subnet_id                 = azurerm_subnet.storage.id
   network_security_group_id = azurerm_network_security_group.storage_nsg.id
 }
-# Data Lake Storage (with storage subnet restriction)
+
+# Storage Account (Data Lake Gen2)
 resource "azurerm_storage_account" "datalake" {
-  name                     = var.storage_account_name
+  name                     = lower(replace(var.storage_account_name, "/[^a-z0-9]/", ""))
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
   account_kind             = "StorageV2"
-  is_hns_enabled           = true # Enable hierarchical namespace for Data Lake Gen2
+  is_hns_enabled           = true
 
   network_rules {
     default_action             = "Deny"
     virtual_network_subnet_ids = [
-      azurerm_subnet.storage.id,    # Primary access from storage subnet
-      azurerm_subnet.analytics.id   # Allow Synapse to access
+      azurerm_subnet.storage.id,
+      azurerm_subnet.analytics.id
     ]
   }
 }
-# Create containers for raw and curated zones
+
 resource "azurerm_storage_container" "raw" {
   name                  = "raw"
   storage_account_name  = azurerm_storage_account.datalake.name

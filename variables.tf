@@ -5,8 +5,9 @@ variable "location" {
 
 variable "resource_group_name" {
   description = "Name of the resource group"
-  default     = "ra-vnet-rg"
+  default     = "ra-rg"
 }
+
 variable "vnet_name" {
   description = "Name of the virtual network"
   default     = "ra-vnet"
@@ -47,10 +48,9 @@ variable "storage_subnet_address" {
   description = "Address space for the storage subnet"
   default     = ["10.0.3.0/24"]
 }
-#Resourses
 
+# Resources
 variable "storage_account_name" {
   description = "Name of the storage account"
   default     = "radatalake"
 }
-
