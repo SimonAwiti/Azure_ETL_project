@@ -41,25 +41,31 @@ jobs:
       run: terraform validate
 
     - name: Terraform Plan
-      id: plan
+      # No 'id' needed here anymore as we are not setting a GITHUB_OUTPUT variable
       run: |
         terraform plan -input=false -out=tfplan
-        echo "PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E '^[[:space:]]*#|Plan:')" >> $GITHUB_OUTPUT
-      continue-on-error: false
+        # Capture the entire plan output to a file
+        terraform show -no-color tfplan > plan_summary.txt
+      continue-on-error: false # Still fail the job if planning fails
 
     - name: Show Plan Summary
-      run: echo "${{ steps.plan.outputs.PLAN_SUMMARY }}"
+      run: |
+        echo "────────────────── Terraform Plan Summary ──────────────────"
+        cat plan_summary.txt
+        echo "──────────────────────────────────────────────────────────"
 
     - name: Terraform Apply
+      # This condition ensures apply only happens on push to main
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: terraform apply -auto-approve -input=false tfplan
 
     - name: Post Apply Status
+      # This ensures the status is reported even if apply fails, but only for main branch pushes
       if: always() && github.ref == 'refs/heads/main'
       run: |
         if [ "${{ job.status }}" == "success" ]; then
           echo "Terraform apply completed successfully"
         else
           echo "Terraform apply failed"
-          exit 1
+          exit 1 # Fail the job explicitly if apply was attempted and failed
         fi
