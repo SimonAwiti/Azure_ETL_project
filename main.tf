@@ -1,21 +1,20 @@
-# Resource Group
-resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
-  location = var.location
+# Reference existing resource group instead of creating new
+data "azurerm_resource_group" "main" {
+  name = var.resource_group_name
 }
 
-# Virtual Network
+# Virtual Network (new resource)
 resource "azurerm_virtual_network" "main" {
   name                = var.vnet_name
   address_space       = var.vnet_address_space
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
 }
 
-# Subnets
+# Subnets (new resources)
 resource "azurerm_subnet" "analytics" {
   name                 = var.analytics_subnet_name
-  resource_group_name  = azurerm_resource_group.main.name
+  resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.analytics_subnet_address
   service_endpoints    = ["Microsoft.Storage"]
@@ -23,24 +22,24 @@ resource "azurerm_subnet" "analytics" {
 
 resource "azurerm_subnet" "app" {
   name                 = var.app_subnet_name
-  resource_group_name  = azurerm_resource_group.main.name
+  resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.app_subnet_address
 }
 
 resource "azurerm_subnet" "storage" {
   name                 = var.storage_subnet_name
-  resource_group_name  = azurerm_resource_group.main.name
+  resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.storage_subnet_address
   service_endpoints    = ["Microsoft.Storage"]
 }
 
-# Network Security Groups
+# Network Security Groups (new resources)
 resource "azurerm_network_security_group" "analytics_nsg" {
   name                = "analytics-nsg"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
 
   security_rule {
     name                       = "AllowSynapse"
@@ -57,8 +56,8 @@ resource "azurerm_network_security_group" "analytics_nsg" {
 
 resource "azurerm_network_security_group" "app_nsg" {
   name                = "app-nsg"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
 
   security_rule {
     name                       = "AllowHTTP"
@@ -71,24 +70,12 @@ resource "azurerm_network_security_group" "app_nsg" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-
-  security_rule {
-    name                       = "AllowHTTPS"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
 resource "azurerm_network_security_group" "storage_nsg" {
   name                = "storage-nsg"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
 
   security_rule {
     name                       = "AllowStorageService"
@@ -103,7 +90,7 @@ resource "azurerm_network_security_group" "storage_nsg" {
   }
 }
 
-# NSG Associations
+# NSG Associations (new resources)
 resource "azurerm_subnet_network_security_group_association" "analytics" {
   subnet_id                 = azurerm_subnet.analytics.id
   network_security_group_id = azurerm_network_security_group.analytics_nsg.id
@@ -119,22 +106,26 @@ resource "azurerm_subnet_network_security_group_association" "storage" {
   network_security_group_id = azurerm_network_security_group.storage_nsg.id
 }
 
-# Storage Account (Data Lake Gen2)
+# Storage Account (new resource)
 resource "azurerm_storage_account" "datalake" {
   name                     = lower(replace(var.storage_account_name, "/[^a-z0-9]/", ""))
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
+  resource_group_name      = data.azurerm_resource_group.main.name
+  location                 = data.azurerm_resource_group.main.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
   account_kind             = "StorageV2"
   is_hns_enabled           = true
 
   network_rules {
-    default_action = "Allow"
+    default_action = "Deny"
     virtual_network_subnet_ids = [
       azurerm_subnet.storage.id,
       azurerm_subnet.analytics.id
     ]
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -150,18 +141,19 @@ resource "azurerm_storage_container" "curated" {
   container_access_type = "private"
 }
 
+# Function App (new resource)
 resource "azurerm_service_plan" "function" {
   name                = "function-app-service-plan"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  sku_name            = "Y1"
 }
 
 resource "azurerm_linux_function_app" "main" {
   name                = var.function_app_name
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.function.id
 
   storage_account_name       = azurerm_storage_account.datalake.name

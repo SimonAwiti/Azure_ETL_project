@@ -3,15 +3,22 @@ name: Terraform CI/CD
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - '**.tf'
+      - '**.tfvars'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - '**.tf'
+      - '**.tfvars'
 
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  TF_CLI_ARGS: "-no-color" # Cleaner output
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
 
 jobs:
   terraform:
@@ -32,40 +39,52 @@ jobs:
     - name: Terraform Format
       run: |
         terraform fmt -recursive -check -diff
-        terraform fmt -recursive # Auto-format if needed
+        terraform fmt -recursive
 
     - name: Terraform Init
-      run: terraform init -upgrade
+      run: terraform init -input=false
 
     - name: Terraform Validate
-      run: terraform validate
+      run: terraform validate -no-color
 
     - name: Terraform Plan
-      # No 'id' needed here anymore as we are not setting a GITHUB_OUTPUT variable
+      id: plan
       run: |
-        terraform plan -input=false -out=tfplan
-        # Capture the entire plan output to a file
-        terraform show -no-color tfplan > plan_summary.txt
-      continue-on-error: false # Still fail the job if planning fails
+        terraform plan -input=false -out=tfplan -detailed-exitcode
+        PLAN_EXIT_CODE=$?
+        case $PLAN_EXIT_CODE in
+          0)
+            echo "No changes detected"
+            echo "PLAN_HAS_CHANGES=false" >> $GITHUB_OUTPUT
+            ;;
+          1)
+            echo "Error during plan"
+            exit 1
+            ;;
+          2)
+            echo "Changes detected"
+            echo "PLAN_HAS_CHANGES=true" >> $GITHUB_OUTPUT
+            terraform show -no-color tfplan > plan.txt
+            ;;
+        esac
 
-    - name: Show Plan Summary
-      run: |
-        echo "────────────────── Terraform Plan Summary ──────────────────"
-        cat plan_summary.txt
-        echo "──────────────────────────────────────────────────────────"
+    - name: Upload Plan Artifact
+      if: github.event_name == 'pull_request' && steps.plan.outputs.PLAN_HAS_CHANGES == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfplan
+        path: plan.txt
 
     - name: Terraform Apply
-      # This condition ensures apply only happens on push to main
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push' && steps.plan.outputs.PLAN_HAS_CHANGES == 'true'
       run: terraform apply -auto-approve -input=false tfplan
 
-    - name: Post Apply Status
-      # This ensures the status is reported even if apply fails, but only for main branch pushes
-      if: always() && github.ref == 'refs/heads/main'
+    - name: Post-Apply Status
+      if: always()
       run: |
         if [ "${{ job.status }}" == "success" ]; then
-          echo "Terraform apply completed successfully"
+          echo "Terraform operation completed successfully"
         else
-          echo "Terraform apply failed"
-          exit 1 # Fail the job explicitly if apply was attempted and failed
+          echo "Terraform operation failed"
+          exit 1
         fi

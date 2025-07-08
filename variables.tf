@@ -4,7 +4,7 @@ variable "location" {
 }
 
 variable "resource_group_name" {
-  description = "Name of the resource group"
+  description = "Name of the existing resource group"
   default     = "ra-etl-pipeline-rg"
 }
 
@@ -54,6 +54,7 @@ variable "storage_account_name" {
   description = "Name of the storage account"
   default     = "ra-etl-pipeline-datalake"
 }
+
 variable "function_app_name" {
   description = "Name of the function app"
   default     = "ra-function-app"
