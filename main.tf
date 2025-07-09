@@ -225,11 +225,12 @@ resource "azurerm_mssql_server" "main" {
 # --- Azure SQL Database ---
 # The actual database instance within the SQL Server.
 # Corrected: Removed `resource_group_name` and `location` as they are not direct arguments.
+# Corrected: Changed `sku_name = "Standard_S0"` to `sku_name = "S0"`.
 resource "azurerm_mssql_database" "main" {
   name        = var.sql_database_name
   server_id   = azurerm_mssql_server.main.id # Corrected: Use `server_id` and refer to the SQL Server's ID.
   collation   = "SQL_Latin1_General_CP1_CI_AS"
-  sku_name    = "Standard_S0" # Basic SKU for demonstration
+  sku_name    = "S0" # Corrected: Changed to "S0" as per valid SKU names for azurerm_mssql_database
   max_size_gb = 2
 }
 
