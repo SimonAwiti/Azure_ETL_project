@@ -10,7 +10,7 @@ variable "resource_group_name" {
 variable "location" {
   description = "The Azure region where resources will be deployed."
   type        = string
-  default     = "UK South"
+  default     = "UK West"
 }
 
 variable "vnet_name" {
@@ -28,7 +28,7 @@ variable "vnet_address_space" {
 variable "app_subnet_name" {
   description = "The name of the Application Subnet."
   type        = string
-  default     = "snet-ra-etl-app"
+  default     = "app-snet-ra-etl"
 }
 
 variable "app_subnet_address_prefixes" {
@@ -40,7 +40,7 @@ variable "app_subnet_address_prefixes" {
 variable "db_subnet_name" {
   description = "The name of the DB Subnet for Private Endpoint."
   type        = string
-  default     = "snet-ra-etl-db-pe"
+  default     = "db-snet-ra-etl"
 }
 
 variable "db_subnet_address_prefixes" {
@@ -52,7 +52,7 @@ variable "db_subnet_address_prefixes" {
 variable "datalake_subnet_name" {
   description = "The name of the Data Lake Subnet for Private Endpoint."
   type        = string
-  default     = "snet-ra-etl-datalake-pe"
+  default     = "datalake-snet-ra-etl"
 }
 
 variable "datalake_subnet_address_prefixes" {
@@ -64,31 +64,31 @@ variable "datalake_subnet_address_prefixes" {
 variable "function_app_name" {
   description = "The name of the Azure Function App."
   type        = string
-  default     = "func-ra-etl-architecture-demo"
+  default     = "func-app-ra-etl"
 }
 
 variable "function_app_storage_name" {
   description = "The name of the storage account for the Function App."
   type        = string
-  default     = "raetlfuncarchdemo"
+  default     = "func-app-ra-etl-strge"
 }
 
 variable "datalake_storage_name" {
   description = "The name of the Data Lake Gen2 storage account."
   type        = string
-  default     = "raetldatalakearchdemo"
+  default     = "dtlake-app-ra-etl-strge"
 }
 
 variable "sql_server_name" {
   description = "The name of the Azure SQL Server."
   type        = string
-  default     = "sqlserver-ra-etl-arch-demo"
+  default     = "sqlserver-ra-etl"
 }
 
 variable "sql_database_name" {
   description = "The name of the Azure SQL Database."
   type        = string
-  default     = "sqldb-ra-etl-arch-demo"
+  default     = "sqldb-ra-etl"
 }
 
 variable "sql_admin_login" {
@@ -107,7 +107,7 @@ variable "sql_admin_password" {
 variable "iot_hub_name" {
   description = "The name of the Azure IoT Hub."
   type        = string
-  default     = "iothub-ra-etl-architecture-demo"
+  default     = "iothub-ra-etl"
 }
 
 variable "iot_hub_consumer_group_name" {

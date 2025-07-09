@@ -445,7 +445,7 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   log {
-    category = "Auditing" # Corrected category for SQL Server
+    category = "SQLInsights" # Corrected category for SQL Server diagnostic logs
     enabled  = true
   }
   log {
@@ -488,11 +488,8 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  log {
-    category = "StorageBlobLogs" # Corrected category for Data Lake Gen2 (Blob service)
-    enabled  = true
-  }
-  # Removed individual StorageRead, StorageWrite, StorageDelete logs, as StorageBlobLogs covers them
+  # Removed 'log' block for Data Lake Gen2 diagnostic settings as "StorageBlobLogs" was not supported.
+  # Only metrics are configured for now. Re-add specific log categories if needed, after checking valid ones via Portal/CLI.
 
   metric {
     category = "Transaction"
@@ -587,7 +584,7 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "D2CMessageErrors" # Corrected metric name
+    metric_name      = "TelemetryErrors" # Corrected metric name
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 0
