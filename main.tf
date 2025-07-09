@@ -223,11 +223,11 @@ resource "azurerm_windows_function_app" "main" {
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
   virtual_network_subnet_id  = azurerm_subnet.app.id
-  https_only                 = true  # From ARM template
-  client_affinity_enabled    = false # From ARM template
+  https_only                 = true # From ARM template
+  #client_affinity_enabled    = false # From ARM template
   # The ARM template explicitly sets these:
-  use_32_bit_worker_process = var.use_32_bit_worker_process # From ARM parameters
-  ftps_state                = var.ftps_state                # From ARM parameters
+  #use_32_bit_worker_process = var.use_32_bit_worker_process # From ARM parameters
+  #ftps_state                = var.ftps_state                # From ARM parameters
   # auto_generated_domain_name_label_scope = var.auto_generated_domain_name_label_scope # Only if supported by azurerm_windows_function_app
 
   site_config {
