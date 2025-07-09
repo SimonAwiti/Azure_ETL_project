@@ -1,42 +1,36 @@
-variable "location" {
-  description = "Azure region where resources will be deployed"
-  default     = "eastus"
-}
-
 variable "resource_group_name" {
-  description = "Name of the existing resource group"
+  description = "Name of existing resource group"
   default     = "ra-etl-pipeline-rg"
 }
 
 variable "vnet_name" {
-  description = "Name of the virtual network"
-  default     = "ra-etl-vnet"
+  description = "Name of virtual network"
+  default     = "ra-vnet"
 }
 
 variable "vnet_address_space" {
-  description = "Address space for the virtual network"
-  default     = ["10.0.0.0/16"]
+  description = "VNet address space"
+  default     = ["10.1.0.0/16"] # Updated for Australia deployment
 }
 
-# Subnets
 variable "analytics_subnet_name" {
-  description = "Name of the analytics subnet"
+  description = "Analytics subnet name"
   default     = "analytics-subnet"
 }
 
 variable "analytics_subnet_address" {
-  description = "Address space for the analytics subnet"
-  default     = ["10.0.1.0/24"]
+  description = "Analytics subnet range"
+  default     = ["10.1.1.0/24"]
 }
 
 variable "app_subnet_name" {
-  description = "Name of the application subnet"
+  description = "App subnet name"
   default     = "app-subnet"
 }
 
 variable "app_subnet_address" {
-  description = "Address space for the application subnet"
-  default     = ["10.0.2.0/24"]
+  description = "App subnet range"
+  default     = ["10.1.2.0/24"]
 }
 
 variable "storage_subnet_name" {
@@ -51,11 +45,11 @@ variable "storage_subnet_address" {
 
 # Resources
 variable "storage_account_name" {
-  description = "Name of the storage account"
-  default     = "ra-etl-pipeline-datalake"
+  description = "Storage account name"
+  default     = "raetldatalakeaus"
 }
 
 variable "function_app_name" {
-  description = "Name of the function app"
-  default     = "ra-function-app"
+  description = "Function app name"
+  default     = "ra-func-aus"
 }
