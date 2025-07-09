@@ -1,5 +1,5 @@
 # outputs.tf
-# This file defines the output values that will be displayed after Terraform applies the configuration.
+# This file defines the output values that will be displayed after Terraform applies the config.
 
 output "resource_group_name" {
   description = "Name of the deployed Resource Group"
