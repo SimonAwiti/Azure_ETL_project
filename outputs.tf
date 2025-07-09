@@ -25,8 +25,3 @@ output "datalake_gen2_primary_blob_endpoint" {
   description = "Primary blob endpoint of the Data Lake Gen2 storage account"
   value       = azurerm_storage_account.datalake_gen2.primary_blob_endpoint
 }
-
-output "synapse_workspace_web_url" {
-  description = "Web URL for the Synapse Workspace"
-  value       = azurerm_synapse_workspace.main.web_url
-}

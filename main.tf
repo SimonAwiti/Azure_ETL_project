@@ -168,16 +168,14 @@ resource "azurerm_storage_account" "function_app_storage" {
 }
 
 # --- App Service Plan (for Function App) ---
-# Defines the underlying compute resources for your Function App.
-resource "azurerm_app_service_plan" "function_app_plan" {
+# Updated to use `azurerm_service_plan` as `azurerm_app_service_plan` is deprecated.
+resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   kind                = "FunctionApp" # Specify FunctionApp kind for Function Apps
-  sku {
-    tier = "Consumption" # Consumption plan for serverless functions
-    size = "Y1"
-  }
+  sku_name            = "Y1"          # Consumption plan SKU
+  os_type             = "Linux"       # Must match the Function App OS type
 }
 
 # --- Azure Function App ---
@@ -186,22 +184,30 @@ resource "azurerm_function_app" "main" {
   name                       = var.function_app_name
   location                   = azurerm_resource_group.main.location
   resource_group_name        = azurerm_resource_group.main.name
-  app_service_plan_id        = azurerm_app_service_plan.function_app_plan.id
+  app_service_plan_id        = azurerm_service_plan.function_app_plan.id # Reference updated plan
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
   os_type                    = "Linux" # Or "Windows" based on your preference
   version                    = "~4"    # Function App runtime version (e.g., ~4 for .NET 6/7, Node 16/18, Python 3.9/3.10)
 
-  # Enable VNet integration for the Function App
-  virtual_network_subnet_id = azurerm_subnet.app.id
-
-  app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"       = "node" # Example: "dotnet", "node", "python", "java", "powershell"
-    "WEBSITE_VNET_ROUTE_ALL"         = "1"    # Route all outbound traffic through the VNet
-    "APPINSIGHTS_INSTRUMENTATIONKEY" = ""     # Add Application Insights key if needed
+  # VNet integration is now configured via the 'site_config' block
+  site_config {
+    # This enables VNet integration for the Function App
+    vnet_route_all_enabled = true # Route all outbound traffic through the VNet
   }
-  # Add more settings as required by your function app
+
+  # Link the Function App to the subnet via a VNet Integration resource
+  # This is the correct way to associate a Function App with a subnet
+  # when the App Service Plan is not directly linked.
+  # The `virtual_network_subnet_id` argument is not a direct property of `azurerm_function_app`.
 }
+
+# Resource to link the Function App to the subnet
+resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vnet_integration" {
+  app_service_id = azurerm_function_app.main.id
+  subnet_id      = azurerm_subnet.app.id
+}
+
 
 # --- Azure SQL Server ---
 # The logical server that hosts your SQL databases.
@@ -212,11 +218,10 @@ resource "azurerm_sql_server" "main" {
   version                      = "12.0" # SQL Server version
   administrator_login          = var.sql_admin_login
   administrator_login_password = var.sql_admin_password
-  minimum_tls_version          = "1.2" # Recommended for security
-
-  # Allow Azure services to access the server (e.g., Function App, Synapse)
-  # This is a broad rule; consider more specific private endpoints for production.
-  public_network_access_enabled = true # Set to false and use private endpoints for production
+  # `minimum_tls_version` is not a direct argument for `azurerm_sql_server` in recent provider versions.
+  # It's usually configured via `azurerm_sql_server_extended_auditing_policy` or server settings.
+  # `public_network_access_enabled` is also not a direct argument. Public access is controlled via firewall rules.
+  # To control public network access, you'd typically use `azurerm_sql_firewall_rule` or private endpoints.
 }
 
 # --- Azure SQL Database ---
@@ -225,10 +230,14 @@ resource "azurerm_sql_database" "main" {
   name                = var.sql_database_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  server_id           = azurerm_sql_server.main.id
-  collation           = "SQL_Latin1_General_CP1_CI_AS"
-  sku_name            = "Standard_S0" # Basic SKU for demonstration
-  max_size_gb         = 2
+  # Corrected: Use `server_name` and refer to the SQL Server's name
+  server_name = azurerm_sql_server.main.name
+  collation   = "SQL_Latin1_General_CP1_CI_AS"
+  # Corrected: `sku_name` is part of a `sku` block
+  sku {
+    name = "Standard_S0" # Basic SKU for demonstration
+  }
+  max_size_gb = 2
 }
 
 # --- Data Lake Gen2 Storage Account ---
