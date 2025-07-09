@@ -71,8 +71,12 @@ jobs:
       id: plan # Assigns an ID to this step to access its outputs
       run: |
         terraform plan -input=false -out=tfplan -var 'location=australiacentral'
-        # Optionally, capture a summary of the plan (e.g., for PR comments)
-        echo "PLAN_SUMMARY=$(terraform show -no-color tfplan)" >> $GITHUB_OUTPUT
+        # Capture a summary of the plan using a multi-line string literal for GITHUB_OUTPUT
+        # This is more robust for multi-line outputs like 'terraform show'
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "PLAN_SUMMARY<<$EOF" >> $GITHUB_OUTPUT
+        terraform show -no-color tfplan >> $GITHUB_OUTPUT
+        echo "$EOF" >> $GITHUB_OUTPUT
 
     - name: Terraform Apply
       # Applies the changes defined in the Terraform plan
