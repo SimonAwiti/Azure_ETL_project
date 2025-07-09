@@ -137,7 +137,7 @@ variable "action_group_name" {
 variable "action_group_short_name" {
   description = "The short name for the Azure Monitor Action Group."
   type        = string
-  default     = "ra-etl-alerts"
+  default     = "ra-alerts"
 }
 
 variable "admin_email_for_alerts" {
