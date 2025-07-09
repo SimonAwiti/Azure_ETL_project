@@ -195,7 +195,7 @@ resource "azurerm_storage_account" "function_app_storage" {
 
 # --- App Service Plan (for Function App) ---
 resource "azurerm_service_plan" "function_app_plan" {
-  name                = var.hosting_plan_name # Use the hostingPlanName from parameters
+  name                = "${var.function_app_name}-plan" # Use the hostingPlanName from parameters
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku_name            = "P1v2"    # Using P1v2 as per previous discussion, adjust if your ARM uses Y1 Dynamic
