@@ -145,11 +145,6 @@ variable "admin_email_for_alerts" {
   type        = string
   default     = "awitisimon23@gmail.com"
 }
-variable "hosting_plan_name" {
-  description = "Name of the App Service Plan for the Function App."
-  type        = string
-  # Default should match the parameter from your ARM if possible, e.g., "ASP-rgraetlarchitecturedemo-8e87"
-}
 
 variable "use_32_bit_worker_process" {
   description = "Should the Function App use a 32-bit worker process?"
