@@ -1,46 +1,83 @@
+# terraform.yml
+# GitHub Actions workflow for Terraform deployment to Azure Australia Central.
+
+# Name of the workflow as it appears in GitHub Actions UI
 name: Terraform Australia Central Deployment
 
+# Define when the workflow should run
 on:
   push:
-    branches: [ "main" ]
+    # Trigger on pushes to the 'main' branch
+    branches:
+      - "main"
+    # Only trigger if changes are made to .tf or .tfvars files
     paths:
       - '**.tf'
       - '**.tfvars'
+  # Allow manual triggering of the workflow from the GitHub Actions UI
+  workflow_dispatch:
 
+# Environment variables for Azure authentication
+# These values are retrieved from GitHub Secrets, which you must configure in your repository.
+# Go to your GitHub repository -> Settings -> Secrets and variables -> Actions -> New repository secret.
+# Add AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID.
 env:
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  # Set this to true for non-interactive Terraform operations in automation environments
   TF_IN_AUTOMATION: true
 
+# Define the jobs to be executed in this workflow
 jobs:
   deploy:
+    # Name of the job
     name: Deploy to Australia Central
+    # The type of runner to use for the job
     runs-on: ubuntu-latest
+    # Specify the environment for deployment (e.g., 'production', 'staging')
     environment: production
 
+    # Steps involved in the deployment job
     steps:
     - name: Checkout code
+      # Uses the official action to check out your repository code
       uses: actions/checkout@v3
 
     - name: Setup Terraform
+      # Uses the HashiCorp action to set up Terraform CLI
+      # This handles installing the specified Terraform version
       uses: hashicorp/setup-terraform@v2
       with:
-        terraform_version: "1.5.7"
+        # Specify the exact Terraform version to use for consistency
+        terraform_version: "1.5.7" # You can adjust this version as needed
 
     - name: Terraform Init
+      # Initializes a Terraform working directory
+      # -input=false prevents Terraform from prompting for input
       run: terraform init -input=false
 
     - name: Terraform Validate
+      # Validates the syntax and configuration of the Terraform files
       run: terraform validate
 
     - name: Terraform Plan
-      id: plan
+      # Generates an execution plan, showing what actions Terraform will take
+      # -input=false prevents interactive prompts
+      # -out=tfplan saves the plan to a file for later use by 'apply'
+      # -var 'location=australiacentral' overrides the default location variable
+      #   This ensures the deployment always targets 'australiacentral' regardless of variables.tf default.
+      id: plan # Assigns an ID to this step to access its outputs
       run: |
         terraform plan -input=false -out=tfplan -var 'location=australiacentral'
+        # Optionally, capture a summary of the plan (e.g., for PR comments)
         echo "PLAN_SUMMARY=$(terraform show -no-color tfplan)" >> $GITHUB_OUTPUT
 
     - name: Terraform Apply
+      # Applies the changes defined in the Terraform plan
+      # This step only runs if the push is to the 'main' branch
+      # -auto-approve bypasses interactive approval for automated deployments
+      # -input=false prevents interactive prompts
       if: github.ref == 'refs/heads/main'
       run: terraform apply -auto-approve -input=false tfplan

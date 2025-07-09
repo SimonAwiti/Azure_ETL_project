@@ -1,59 +1,32 @@
+# outputs.tf
+# This file defines the output values that will be displayed after Terraform applies the configuration.
+
 output "resource_group_name" {
-  description = "Name of the existing resource group"
-  value       = data.azurerm_resource_group.main.name
+  description = "Name of the deployed Resource Group"
+  value       = azurerm_resource_group.main.name
 }
 
-output "resource_group_location" {
-  description = "Location of the resource group"
-  value       = data.azurerm_resource_group.main.location
-}
-
-output "virtual_network_name" {
-  description = "Name of the created virtual network"
+output "vnet_name" {
+  description = "Name of the deployed Virtual Network"
   value       = azurerm_virtual_network.main.name
 }
 
-output "virtual_network_id" {
-  description = "ID of the virtual network"
-  value       = azurerm_virtual_network.main.id
+output "function_app_default_hostname" {
+  description = "Default hostname of the Function App"
+  value       = azurerm_function_app.main.default_hostname
 }
 
-output "storage_account_name" {
-  description = "Name of the storage account"
-  value       = azurerm_storage_account.datalake.name
+output "sql_server_fully_qualified_domain_name" {
+  description = "Fully Qualified Domain Name of the SQL Server"
+  value       = azurerm_sql_server.main.fully_qualified_domain_name
 }
 
-output "storage_account_id" {
-  description = "ID of the storage account"
-  value       = azurerm_storage_account.datalake.id
+output "datalake_gen2_primary_blob_endpoint" {
+  description = "Primary blob endpoint of the Data Lake Gen2 storage account"
+  value       = azurerm_storage_account.datalake_gen2.primary_blob_endpoint
 }
 
-output "storage_account_primary_key" {
-  description = "Primary access key for the storage account"
-  value       = azurerm_storage_account.datalake.primary_access_key
-  sensitive   = true
-}
-
-output "function_app_name" {
-  description = "Name of the function app"
-  value       = azurerm_linux_function_app.main.name
-}
-
-output "function_app_hostname" {
-  description = "Hostname of the function app"
-  value       = azurerm_linux_function_app.main.default_hostname
-}
-
-output "function_app_principal_id" {
-  description = "Managed identity principal ID"
-  value       = azurerm_linux_function_app.main.identity[0].principal_id
-}
-
-output "subnet_ids" {
-  description = "Map of subnet IDs"
-  value = {
-    analytics = azurerm_subnet.analytics.id
-    app       = azurerm_subnet.app.id
-    storage   = azurerm_subnet.storage.id
-  }
+output "synapse_workspace_web_url" {
+  description = "Web URL for the Synapse Workspace"
+  value       = azurerm_synapse_workspace.main.web_url
 }
