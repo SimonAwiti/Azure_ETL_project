@@ -70,13 +70,13 @@ variable "function_app_name" {
 variable "function_app_storage_name" {
   description = "The name of the storage account for the Function App."
   type        = string
-  default     = "func-app-ra-etl-strge"
+  default     = "funcappraetlstrge"
 }
 
 variable "datalake_storage_name" {
   description = "The name of the Data Lake Gen2 storage account."
   type        = string
-  default     = "dtlake-app-ra-etl-strge"
+  default     = "dtlakeappraetlstrge"
 }
 
 variable "sql_server_name" {
