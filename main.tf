@@ -222,8 +222,8 @@ resource "azurerm_windows_function_app" "main" {
   service_plan_id            = azurerm_service_plan.function_app_plan.id
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
-  virtual_network_subnet_id  = azurerm_subnet.app.id
-  https_only                 = true # From ARM template
+  #virtual_network_subnet_id  = azurerm_subnet.app.id
+  https_only = true # From ARM template
   #client_affinity_enabled    = false # From ARM template
   # The ARM template explicitly sets these:
   #use_32_bit_worker_process = var.use_32_bit_worker_process # From ARM parameters
@@ -468,7 +468,7 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   log {
-    category = "SQLSecurityAuditEvents"
+    category = "SQLInsights"
     retention_policy {
       enabled = true
       days    = 30
