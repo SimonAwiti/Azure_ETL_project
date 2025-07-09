@@ -18,7 +18,8 @@ output "function_app_default_hostname" {
 
 output "sql_server_fully_qualified_domain_name" {
   description = "Fully Qualified Domain Name of the SQL Server"
-  value       = azurerm_sql_server.main.fully_qualified_domain_name
+  # Updated to reference the new resource type `azurerm_mssql_server`
+  value = azurerm_mssql_server.main.fully_qualified_domain_name
 }
 
 output "datalake_gen2_primary_blob_endpoint" {

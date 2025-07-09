@@ -187,7 +187,7 @@ resource "azurerm_function_app" "main" {
   app_service_plan_id        = azurerm_service_plan.function_app_plan.id # Reference updated plan
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
-  os_type                    = "Linux" # Or "Windows" based on your preference
+  os_type                    = "linux" # Corrected: changed "Linux" to "linux" (lowercase)
   version                    = "~4"    # Function App runtime version (e.g., ~4 for .NET 6/7, Node 16/18, Python 3.9/3.10)
 
   # VNet integration is now configured via the 'site_config' block
@@ -224,15 +224,13 @@ resource "azurerm_mssql_server" "main" {
 
 # --- Azure SQL Database ---
 # The actual database instance within the SQL Server.
-# Corrected: Use `server_id` and refer to the SQL Server's ID.
+# Corrected: Removed `resource_group_name` and `location` as they are not direct arguments.
 resource "azurerm_mssql_database" "main" {
-  name                = var.sql_database_name
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  server_id           = azurerm_mssql_server.main.id # Changed from server_name to server_id
-  collation           = "SQL_Latin1_General_CP1_CI_AS"
-  sku_name            = "Standard_S0" # Basic SKU for demonstration
-  max_size_gb         = 2
+  name        = var.sql_database_name
+  server_id   = azurerm_mssql_server.main.id # Corrected: Use `server_id` and refer to the SQL Server's ID.
+  collation   = "SQL_Latin1_General_CP1_CI_AS"
+  sku_name    = "Standard_S0" # Basic SKU for demonstration
+  max_size_gb = 2
 }
 
 # --- Data Lake Gen2 Storage Account ---
