@@ -143,7 +143,6 @@ resource "azurerm_network_security_group" "db_nsg" {
     destination_address_prefix = "*"
     description                = "Deny all inbound traffic by default, Private Endpoint will bypass NSG for SQL traffic"
   }
-  # Removed "AllowAzurePlatform" rule as it's not a valid service tag for NSG source
 }
 
 # NSG for Data Lake Subnet - Primarily for Private Endpoint, very restrictive
@@ -164,7 +163,6 @@ resource "azurerm_network_security_group" "datalake_nsg" {
     destination_address_prefix = "*"
     description                = "Deny all inbound traffic by default, Private Endpoint will bypass NSG for storage traffic"
   }
-  # Removed "AllowAzurePlatform" rule as it's not a valid service tag for NSG source
 }
 
 # --- Subnet NSG Associations ---
@@ -200,12 +198,13 @@ resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "EP1" # Changed from "Y1" to Elastic Premium for VNet integration
-  os_type             = "Linux"
+  sku_name            = "P1v2"    # Changed from "EP1" to Windows Premium V2 for VNet integration
+  os_type             = "Windows" # Changed from "Linux"
 }
 
-# --- Azure Function App ---
-resource "azurerm_linux_function_app" "main" {
+# --- Azure Function App (Windows) ---
+# Changed resource type from azurerm_linux_function_app to azurerm_function_app for Windows
+resource "azurerm_function_app" "main" {
   name                       = var.function_app_name
   location                   = azurerm_resource_group.main.location
   resource_group_name        = azurerm_resource_group.main.name
@@ -213,12 +212,15 @@ resource "azurerm_linux_function_app" "main" {
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
 
+  # For Windows Function App, specify runtime in site_config
   site_config {
-    vnet_route_all_enabled = true # Route all outbound traffic through the VNet
+    windows_fx_version      = "node|18" # Example: Node.js 18 on Windows. Adjust to your specific runtime/version.
+    vnet_route_all_enabled  = true      # Route all outbound traffic through the VNet
+    client_affinity_enabled = false     # Generally recommended to disable for modern apps
   }
 
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"              = "node"
+    "FUNCTIONS_WORKER_RUNTIME"              = "node" # Still relevant for worker process
     "WEBSITE_VNET_ROUTE_ALL"                = "1"
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
@@ -235,7 +237,7 @@ resource "azurerm_linux_function_app" "main" {
 
 # Resource to link the Function App to the subnet
 resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vnet_integration" {
-  app_service_id = azurerm_linux_function_app.main.id
+  app_service_id = azurerm_function_app.main.id # Changed from azurerm_linux_function_app.main.id
   subnet_id      = azurerm_subnet.app.id
 }
 
@@ -425,7 +427,7 @@ resource "azurerm_application_insights" "main" {
 # Diagnostic Settings to send logs/metrics to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   name                       = "function-app-diag-settings"
-  target_resource_id         = azurerm_linux_function_app.main.id
+  target_resource_id         = azurerm_function_app.main.id # Changed from azurerm_linux_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   log {
@@ -448,10 +450,11 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
     category = "SQLInsights" # Corrected category for SQL Server diagnostic logs
     enabled  = true
   }
-  log {
-    category = "AutomaticTuning"
-    enabled  = true
-  }
+  # Removed the log block for "AutomaticTuning" as it's not supported.
+  # log {
+  #   category = "AutomaticTuning"
+  #   enabled  = true
+  # }
 
   metric {
     category = "AllMetrics"
@@ -519,7 +522,7 @@ resource "azurerm_monitor_action_group" "main" {
 resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
   name                     = "func-app-http-5xx-errors-alert"
   resource_group_name      = azurerm_resource_group.main.name
-  scopes                   = [azurerm_linux_function_app.main.id]
+  scopes                   = [azurerm_function_app.main.id] # Changed from azurerm_linux_function_app.main.id
   description              = "Alert when Function App experiences high rate of HTTP 5xx errors."
   target_resource_type     = "Microsoft.Web/sites"
   target_resource_location = azurerm_resource_group.main.location
@@ -584,10 +587,10 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "IncomingMessages" # Corrected metric name
+    metric_name      = "Errors" # Corrected metric name
     aggregation      = "Total"
-    operator         = "LessThan"
-    threshold        = 100
+    operator         = "GreaterThan"
+    threshold        = 0
   }
 
   action {
@@ -611,7 +614,7 @@ resource "azurerm_monitor_metric_alert" "datalake_transaction_errors_alert" {
     metric_namespace = "microsoft.storage/storageaccounts"
     metric_name      = "Transactions"
     aggregation      = "Total"
-    operator         = "GreaterThan"
+    operator         = "Include" # Changed from Total to Include for ResponseType dimension
     threshold        = 0
     dimension {
       name     = "ResponseType"
