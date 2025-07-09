@@ -198,28 +198,29 @@ resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "P1v2"    # Changed from "EP1" to Windows Premium V2 for VNet integration
-  os_type             = "Windows" # Changed from "Linux"
+  sku_name            = "P1v2"
+  os_type             = "Windows"
 }
 
 # --- Azure Function App (Windows) ---
-resource "azurerm_function_app" "main" {
+# Changed resource type from azurerm_function_app to azurerm_windows_function_app
+resource "azurerm_windows_function_app" "main" {
   name                       = var.function_app_name
   location                   = azurerm_resource_group.main.location
   resource_group_name        = azurerm_resource_group.main.name
-  app_service_plan_id        = azurerm_service_plan.function_app_plan.id # Corrected argument name
+  service_plan_id            = azurerm_service_plan.function_app_plan.id # Use service_plan_id for azurerm_windows_function_app
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
-
+  virtual_network_subnet_id  = azurerm_subnet.app.id # VNet integration handled directly here
 
   site_config {
-    # Removed windows_fx_version here. Rely on FUNCTIONS_WORKER_RUNTIME and optionally WEBSITE_NODE_DEFAULT_VERSION
     vnet_route_all_enabled = true # Route all outbound traffic through the VNet
+    # client_affinity_enabled is not typically set here for azurerm_windows_function_app
   }
 
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"              = "node" # Still relevant for worker process
-    "WEBSITE_NODE_DEFAULT_VERSION"          = "18"   # Explicitly set Node.js version for Windows
+    "FUNCTIONS_WORKER_RUNTIME"              = "node"
+    "WEBSITE_NODE_DEFAULT_VERSION"          = "18" # Explicitly set Node.js version for Windows
     "WEBSITE_VNET_ROUTE_ALL"                = "1"
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
@@ -234,11 +235,8 @@ resource "azurerm_function_app" "main" {
   }
 }
 
-# Resource to link the Function App to the subnet
-resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vnet_integration" {
-  app_service_id = azurerm_function_app.main.id
-  subnet_id      = azurerm_subnet.app.id
-}
+# Removed azurerm_app_service_virtual_network_swift_connection as it's now handled by virtual_network_subnet_id in azurerm_windows_function_app
+
 
 # --- Azure IoT Hub ---
 resource "azurerm_iothub" "main" {
@@ -426,10 +424,11 @@ resource "azurerm_application_insights" "main" {
 # Diagnostic Settings to send logs/metrics to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   name                       = "function-app-diag-settings"
-  target_resource_id         = azurerm_function_app.main.id
+  target_resource_id         = azurerm_windows_function_app.main.id # Updated resource reference
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  enabled_log { # Changed from 'log' to 'enabled_log'
+  # Reverted to 'log' and 'metric' blocks
+  log {
     category = "FunctionAppLogs"
     retention_policy {
       enabled = true
@@ -437,7 +436,7 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
     }
   }
 
-  enabled_metric { # Changed from 'metric' to 'enabled_metric'
+  metric {
     category = "AllMetrics"
     retention_policy {
       enabled = true
@@ -451,16 +450,16 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  enabled_log { # Changed from 'log' to 'enabled_log'
+  # Reverted to 'log' and 'metric' blocks
+  log {
     category = "SQLInsights"
     retention_policy {
       enabled = true
       days    = 30
     }
   }
-  # Removed the log block for "AutomaticTuning" as it's not supported.
 
-  enabled_metric { # Changed from 'metric' to 'enabled_metric'
+  metric {
     category = "AllMetrics"
     retention_policy {
       enabled = true
@@ -474,21 +473,22 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  enabled_log { # Changed from 'log' to 'enabled_log'
+  # Reverted to 'log' and 'metric' blocks
+  log {
     category = "Connections"
     retention_policy {
       enabled = true
       days    = 30
     }
   }
-  enabled_log { # Changed from 'log' to 'enabled_log'
+  log {
     category = "DeviceTelemetry"
     retention_policy {
       enabled = true
       days    = 30
     }
   }
-  enabled_log { # Changed from 'log' to 'enabled_log'
+  log {
     category = "C2DCommands"
     retention_policy {
       enabled = true
@@ -496,7 +496,7 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
     }
   }
 
-  enabled_metric { # Changed from 'metric' to 'enabled_metric'
+  metric {
     category = "AllMetrics"
     retention_policy {
       enabled = true
@@ -510,17 +510,15 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Removed 'log' block for Data Lake Gen2 diagnostic settings as "StorageBlobLogs" was not supported.
-  # Only metrics are configured for now. Re-add specific log categories if needed, after checking valid ones via Portal/CLI.
-
-  enabled_metric { # Changed from 'metric' to 'enabled_metric'
+  # Reverted to 'log' and 'metric' blocks (only metrics were configured previously)
+  metric {
     category = "Transaction"
     retention_policy {
       enabled = true
       days    = 30
     }
   }
-  enabled_metric { # Changed from 'metric' to 'enabled_metric'
+  metric {
     category = "Capacity"
     retention_policy {
       enabled = true
@@ -547,7 +545,7 @@ resource "azurerm_monitor_action_group" "main" {
 resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
   name                     = "func-app-http-5xx-errors-alert"
   resource_group_name      = azurerm_resource_group.main.name
-  scopes                   = [azurerm_function_app.main.id]
+  scopes                   = [azurerm_windows_function_app.main.id] # Updated resource reference
   description              = "Alert when Function App experiences high rate of HTTP 5xx errors."
   target_resource_type     = "Microsoft.Web/sites"
   target_resource_location = azurerm_resource_group.main.location
@@ -559,7 +557,7 @@ resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
     metric_namespace = "microsoft.web/sites"
     metric_name      = "Http5xx"
     aggregation      = "Total"
-    operator         = "GreaterThan" # Corrected operator for threshold comparison
+    operator         = "GreaterThan"
     threshold        = 5
     dimension {
       name     = "Host"
@@ -638,14 +636,12 @@ resource "azurerm_monitor_metric_alert" "datalake_transaction_errors_alert" {
   criteria {
     metric_namespace = "microsoft.storage/storageaccounts"
     metric_name      = "Transactions"
-    # The 'operator' for the criteria block itself must be a comparison.
-    # We are looking for the total count of transactions where ResponseType matches the dimension filter.
-    aggregation = "Total"
-    operator    = "GreaterThan" # Changed to a valid comparison operator for the threshold
-    threshold   = 0
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = 0
     dimension {
       name     = "ResponseType"
-      operator = "Include" # This operator is correct for filtering dimensions
+      operator = "Include"
       values   = ["ServerOtherError", "ClientOtherError"]
     }
   }
