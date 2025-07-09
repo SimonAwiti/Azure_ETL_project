@@ -28,7 +28,7 @@ resource "azurerm_subnet" "app" {
   address_prefixes     = var.app_subnet_address_prefixes
 
   # Required for Function Apps to integrate with a VNet
-  service_endpoints = ["Microsoft.Web", "Microsoft.Storage", "Microsoft.Sql"] # Added Storage and SQL for private endpoint access
+  service_endpoints = ["Microsoft.Web", "Microsoft.Storage", "Microsoft.Sql"]
 }
 
 # DB Subnet (for Azure SQL DB Private Endpoint)
@@ -39,17 +39,14 @@ resource "azurerm_subnet" "db" {
   address_prefixes     = var.db_subnet_address_prefixes
 
   # No service endpoints needed here if using Private Endpoints, as traffic goes over private link
-  # delegation block is not needed for private endpoints
 }
 
-# Data Lake Subnet (for Azure Data Lake Gen2 Private Endpoint) - Renamed from Analytics Subnet
+# Data Lake Subnet (for Azure Data Lake Gen2 Private Endpoint)
 resource "azurerm_subnet" "datalake" {
   name                 = var.datalake_subnet_name
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = var.datalake_subnet_address_prefixes
-
-  # No service endpoints needed here if using Private Endpoints
 }
 
 
@@ -126,7 +123,6 @@ resource "azurerm_network_security_group" "app_nsg" {
     destination_address_prefix = azurerm_subnet.datalake.address_prefixes[0] # Allow outbound to Data Lake Subnet
     description                = "Allow outbound to Data Lake Gen2 Private Endpoint"
   }
-  # Consider adding rules for Azure AD, DNS if using Private DNS zones
 }
 
 # NSG for DB Subnet - Primarily for Private Endpoint, very restrictive
@@ -243,21 +239,18 @@ resource "azurerm_linux_function_app" "main" {
 
   site_config {
     vnet_route_all_enabled = true # Route all outbound traffic through the VNet
-    # Application Insights key is usually set via app_settings for Function Apps
   }
 
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"              = "node" # Example: "dotnet", "node", "python", "java", "powershell"
+    "FUNCTIONS_WORKER_RUNTIME"              = "node"
     "WEBSITE_VNET_ROUTE_ALL"                = "1"
     "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
     "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-    # For SQL DB access, consider Managed Identity instead of connection string directly in app settings
-    # The FQDN for the SQL connection string should come from the private DNS zone or private endpoint.
-    # We will use the private endpoint's private IP as a fallback, or rely on private DNS resolution.
-    "SQL_CONNECTION_STRING" = "Server=tcp:${azurerm_private_endpoint.sql_private_endpoint.private_ip_address},1433;Initial Catalog=${azurerm_mssql_database.main.name};Authentication=Active Directory Integrated;" # Example with Managed Identity and Private IP
+    # Use the standard FQDN for SQL Server; Private DNS Zone will handle private resolution
+    "SQL_CONNECTION_STRING" = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Authentication=Active Directory Integrated;" # Managed Identity
+    # Use the standard DFS endpoint for Data Lake Gen2; Private DNS Zone will handle private resolution
     "DATALAKE_ACCOUNT_NAME" = azurerm_storage_account.datalake_gen2.name
-    "DATALAKE_DFS_ENDPOINT" = "https://${azurerm_private_endpoint.datalake_dfs_private_endpoint.private_ip_address}.dfs.core.windows.net/" # Example with Private IP
-    # For Data Lake access, use Managed Identity.
+    "DATALAKE_DFS_ENDPOINT" = azurerm_storage_account.datalake_gen2.primary_dfs_endpoint
   }
   identity {
     type = "SystemAssigned" # Enable Managed Identity for the Function App
@@ -271,15 +264,14 @@ resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vn
 }
 
 # --- Azure IoT Hub ---
-# Corrected resource type to azurerm_iothub
 resource "azurerm_iothub" "main" {
   name                = var.iot_hub_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 
   sku {
-    name     = "S1" # Standard tier for production, B1 (Basic) for dev/test to optimize cost
-    capacity = 1    # Number of units, adjust based on expected message volume
+    name     = "S1"
+    capacity = 1
   }
 
   tags = {
@@ -288,11 +280,10 @@ resource "azurerm_iothub" "main" {
 }
 
 # IoT Hub Consumer Group for Azure Function
-# Corrected resource type to azurerm_iothub_consumer_group
 resource "azurerm_iothub_consumer_group" "function_app_consumer_group" {
   name                   = var.iot_hub_consumer_group_name
-  iothub_name            = azurerm_iothub.main.name # Corrected attribute name
-  eventhub_endpoint_name = "events"                 # Built-in Event Hub endpoint for telemetry
+  iothub_name            = azurerm_iothub.main.name
+  eventhub_endpoint_name = "events" # Built-in Event Hub endpoint for telemetry
   resource_group_name    = azurerm_resource_group.main.name
 }
 
@@ -305,7 +296,7 @@ resource "azurerm_mssql_server" "main" {
   version                       = "12.0"
   administrator_login           = var.sql_admin_login
   administrator_login_password  = var.sql_admin_password
-  minimum_tls_version           = "1.2" # Enforce TLS 1.2 for security
+  minimum_tls_version           = "1.2"
   public_network_access_enabled = false # Disable public access, rely on Private Endpoint
 }
 
@@ -314,7 +305,7 @@ resource "azurerm_mssql_database" "main" {
   name        = var.sql_database_name
   server_id   = azurerm_mssql_server.main.id
   collation   = "SQL_Latin1_General_CP1_CI_AS"
-  sku_name    = "S0" # Cost-effective starting point, scale as needed
+  sku_name    = "S0"
   max_size_gb = 2
 }
 
@@ -323,7 +314,7 @@ resource "azurerm_private_endpoint" "sql_private_endpoint" {
   name                = "${azurerm_mssql_server.main.name}-pe"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = azurerm_subnet.db.id # Connect to the DB subnet
+  subnet_id           = azurerm_subnet.db.id
 
   private_service_connection {
     name                           = "${azurerm_mssql_server.main.name}-psc"
@@ -359,10 +350,10 @@ resource "azurerm_storage_account" "datalake_gen2" {
   resource_group_name           = azurerm_resource_group.main.name
   location                      = azurerm_resource_group.main.location
   account_tier                  = "Standard"
-  account_replication_type      = "GRS"    # Geo-Redundant Storage for higher durability, consider LRS/ZRS for cost
-  is_hns_enabled                = true     # Enable hierarchical namespace for Data Lake Gen2
-  min_tls_version               = "TLS1_2" # Enforce TLS 1.2 for security
-  public_network_access_enabled = false    # Disable public access, rely on Private Endpoint
+  account_replication_type      = "GRS"
+  is_hns_enabled                = true
+  min_tls_version               = "TLS1_2"
+  public_network_access_enabled = false # Disable public access, rely on Private Endpoint
 }
 
 # --- Private Endpoint for Data Lake Gen2 Storage Account (Blob) ---
@@ -370,13 +361,13 @@ resource "azurerm_private_endpoint" "datalake_blob_private_endpoint" {
   name                = "${azurerm_storage_account.datalake_gen2.name}-blob-pe"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = azurerm_subnet.datalake.id # Connect to the Data Lake subnet
+  subnet_id           = azurerm_subnet.datalake.id
 
   private_service_connection {
     name                           = "${azurerm_storage_account.datalake_gen2.name}-blob-psc"
     is_manual_connection           = false
     private_connection_resource_id = azurerm_storage_account.datalake_gen2.id
-    subresource_names              = ["blob"] # For blob (Data Lake Gen2) access
+    subresource_names              = ["blob"]
   }
 
   private_dns_zone_group {
@@ -390,13 +381,13 @@ resource "azurerm_private_endpoint" "datalake_dfs_private_endpoint" {
   name                = "${azurerm_storage_account.datalake_gen2.name}-dfs-pe"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = azurerm_subnet.datalake.id # Connect to the Data Lake subnet
+  subnet_id           = azurerm_subnet.datalake.id
 
   private_service_connection {
     name                           = "${azurerm_storage_account.datalake_gen2.name}-dfs-psc"
     is_manual_connection           = false
     private_connection_resource_id = azurerm_storage_account.datalake_gen2.id
-    subresource_names              = ["dfs"] # For DFS (ABFS) access
+    subresource_names              = ["dfs"]
   }
 
   private_dns_zone_group {
@@ -442,8 +433,8 @@ resource "azurerm_log_analytics_workspace" "main" {
   name                = var.log_analytics_workspace_name
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku                 = "PerGB2018" # Cost-optimized SKU for Log Analytics
-  retention_in_days   = 30          # Retain logs for 30 days, adjust for cost vs. compliance
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
 }
 
 # Application Insights for Function App
@@ -451,7 +442,7 @@ resource "azurerm_application_insights" "main" {
   name                = var.app_insights_name
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  application_type    = "web" # Or "other" depending on specific use case
+  application_type    = "web"
   workspace_id        = azurerm_log_analytics_workspace.main.id
 }
 
@@ -461,12 +452,12 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   target_resource_id         = azurerm_linux_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  log {
-    category = "FunctionAppLogs" # Or other relevant categories
+  enabled_log {
+    category = "FunctionAppLogs"
     enabled  = true
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
     enabled  = true
   }
@@ -477,16 +468,16 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  log {
+  enabled_log {
     category = "SQLSecurityAudit"
     enabled  = true
   }
-  log {
+  enabled_log {
     category = "AutomaticTuning"
     enabled  = true
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
     enabled  = true
   }
@@ -494,23 +485,23 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
 
 resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
   name                       = "iot-hub-diag-settings"
-  target_resource_id         = azurerm_iothub.main.id # Corrected reference
+  target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  log {
+  enabled_log {
     category = "Connections"
     enabled  = true
   }
-  log {
+  enabled_log {
     category = "DeviceTelemetry"
     enabled  = true
   }
-  log {
-    category = "C2DCommands" # Cloud to Device Commands
+  enabled_log {
+    category = "C2DCommands"
     enabled  = true
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
     enabled  = true
   }
@@ -521,24 +512,24 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  log {
+  enabled_log {
     category = "StorageRead"
     enabled  = true
   }
-  log {
+  enabled_log {
     category = "StorageWrite"
     enabled  = true
   }
-  log {
+  enabled_log {
     category = "StorageDelete"
     enabled  = true
   }
 
-  metric {
+  enabled_metric {
     category = "Transaction"
     enabled  = true
   }
-  metric {
+  enabled_metric {
     category = "Capacity"
     enabled  = true
   }
@@ -554,8 +545,6 @@ resource "azurerm_monitor_action_group" "main" {
     name          = "admin_email"
     email_address = var.admin_email_for_alerts
   }
-
-  # Add other receivers like SMS, Webhook, etc., if needed
 }
 
 # --- Metric Alerts ---
@@ -566,18 +555,18 @@ resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
   resource_group_name      = azurerm_resource_group.main.name
   scopes                   = [azurerm_linux_function_app.main.id]
   description              = "Alert when Function App experiences high rate of HTTP 5xx errors."
-  target_resource_type     = "Microsoft.Web/sites"                # Corrected attribute access
-  target_resource_location = azurerm_resource_group.main.location # Corrected attribute access
+  target_resource_type     = "Microsoft.Web/sites"
+  target_resource_location = azurerm_resource_group.main.location
   enabled                  = true
-  frequency                = "PT5M" # Check every 5 minutes
-  window_size              = "PT5M" # Look at data from the last 5 minutes
+  frequency                = "PT5M"
+  window_size              = "PT5M"
 
   criteria {
     metric_namespace = "microsoft.web/sites"
     metric_name      = "Http5xxErrors"
     aggregation      = "Total"
     operator         = "GreaterThan"
-    threshold        = 5 # More than 5 errors in 5 minutes
+    threshold        = 5
     dimension {
       name     = "Host"
       operator = "Include"
@@ -596,18 +585,18 @@ resource "azurerm_monitor_metric_alert" "sql_db_dtu_usage_alert" {
   resource_group_name      = azurerm_resource_group.main.name
   scopes                   = [azurerm_mssql_database.main.id]
   description              = "Alert when SQL Database DTU usage is high."
-  target_resource_type     = "Microsoft.Sql/servers/databases"    # Corrected attribute access
-  target_resource_location = azurerm_resource_group.main.location # Corrected attribute access
+  target_resource_type     = "Microsoft.Sql/servers/databases"
+  target_resource_location = azurerm_resource_group.main.location
   enabled                  = true
   frequency                = "PT5M"
-  window_size              = "PT15M" # Average over 15 minutes
+  window_size              = "PT15M"
 
   criteria {
     metric_namespace = "microsoft.sql/servers/databases"
     metric_name      = "dtu_consumption_percent"
     aggregation      = "Average"
     operator         = "GreaterThan"
-    threshold        = 80 # Alert if average DTU consumption is over 80%
+    threshold        = 80
   }
 
   action {
@@ -619,10 +608,10 @@ resource "azurerm_monitor_metric_alert" "sql_db_dtu_usage_alert" {
 resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
   name                     = "iot-hub-telemetry-errors-alert"
   resource_group_name      = azurerm_resource_group.main.name
-  scopes                   = [azurerm_iothub.main.id] # Corrected reference
+  scopes                   = [azurerm_iothub.main.id]
   description              = "Alert when IoT Hub telemetry messages have errors."
-  target_resource_type     = "Microsoft.Devices/IotHubs"          # Corrected attribute access
-  target_resource_location = azurerm_resource_group.main.location # Corrected attribute access
+  target_resource_type     = "Microsoft.Devices/IotHubs"
+  target_resource_location = azurerm_resource_group.main.location
   enabled                  = true
   frequency                = "PT5M"
   window_size              = "PT5M"
@@ -632,7 +621,7 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
     metric_name      = "d2c.telemetry.ingress.errors"
     aggregation      = "Total"
     operator         = "GreaterThan"
-    threshold        = 0 # Alert on any telemetry ingress errors
+    threshold        = 0
   }
 
   action {
@@ -646,8 +635,8 @@ resource "azurerm_monitor_metric_alert" "datalake_transaction_errors_alert" {
   resource_group_name      = azurerm_resource_group.main.name
   scopes                   = [azurerm_storage_account.datalake_gen2.id]
   description              = "Alert when Data Lake Gen2 experiences transaction errors."
-  target_resource_type     = "Microsoft.Storage/storageAccounts"  # Corrected attribute access
-  target_resource_location = azurerm_resource_group.main.location # Corrected attribute access
+  target_resource_type     = "Microsoft.Storage/storageAccounts"
+  target_resource_location = azurerm_resource_group.main.location
   enabled                  = true
   frequency                = "PT5M"
   window_size              = "PT5M"
@@ -657,11 +646,11 @@ resource "azurerm_monitor_metric_alert" "datalake_transaction_errors_alert" {
     metric_name      = "Transactions"
     aggregation      = "Total"
     operator         = "GreaterThan"
-    threshold        = 0 # Alert on any transaction errors
+    threshold        = 0
     dimension {
       name     = "ResponseType"
       operator = "Include"
-      values   = ["ServerOtherError", "ClientOtherError"] # Filter for error responses
+      values   = ["ServerOtherError", "ClientOtherError"]
     }
   }
 

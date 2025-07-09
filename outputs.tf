@@ -17,24 +17,20 @@ output "function_app_default_hostname" {
 }
 
 output "sql_server_fully_qualified_domain_name" {
-  description = "Fully Qualified Domain Name of the SQL Server (via Private Endpoint DNS)"
-  # For the FQDN via Private Endpoint, typically the private_ip_address combined with the private DNS zone or the fqdns attribute from the private service connection if available.
-  # If 'fqdns' still gives an error, use the service's original FQDN and rely on the Private DNS Zone Link for resolution within the VNet.
-  # As per the error, 'fqdns' is not directly available on 'private_service_connection'.
-  # For now, let's output the private IP and assume private DNS will handle resolution.
-  # A more robust solution might involve creating azurerm_private_dns_a_record explicitly.
-  value = azurerm_private_endpoint.sql_private_endpoint.private_ip_address # Using private IP as a workaround if fqdns is not exported
+  description = "Fully Qualified Domain Name of the SQL Server (will resolve privately via Private DNS Zone)"
+  # Use the standard FQDN, which will resolve privately within the VNet due to the Private DNS Zone link.
+  value = azurerm_mssql_server.main.fully_qualified_domain_name
 }
 
 output "datalake_gen2_primary_blob_endpoint" {
-  description = "Primary blob endpoint of the Data Lake Gen2 storage account (via Private Endpoint DNS)"
-  # Similar to SQL, if 'fqdns' is not available, we use the private IP and construct the endpoint.
-  value = "https://${azurerm_private_endpoint.datalake_blob_private_endpoint.private_ip_address}.blob.core.windows.net/"
+  description = "Primary blob endpoint of the Data Lake Gen2 storage account (will resolve privately via Private DNS Zone)"
+  # Use the standard blob endpoint, which will resolve privately within the VNet due to the Private DNS Zone link.
+  value = azurerm_storage_account.datalake_gen2.primary_blob_host
 }
 
 output "iot_hub_hostname" {
   description = "Hostname of the IoT Hub"
-  value       = azurerm_iothub.main.hostname # Corrected resource type
+  value       = azurerm_iothub.main.hostname
 }
 
 output "log_analytics_workspace_id" {
