@@ -10,7 +10,7 @@ variable "resource_group_name" {
 variable "location" {
   description = "The Azure region where resources will be deployed."
   type        = string
-  default     = "Canada Central"
+  default     = "South Africa North"
 }
 
 variable "vnet_name" {
