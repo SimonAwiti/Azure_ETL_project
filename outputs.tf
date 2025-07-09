@@ -13,7 +13,8 @@ output "vnet_name" {
 
 output "function_app_default_hostname" {
   description = "Default hostname of the Function App"
-  value       = azurerm_function_app.main.default_hostname
+  # Updated to reference the new resource type `azurerm_linux_function_app`
+  value = azurerm_linux_function_app.main.default_hostname
 }
 
 output "sql_server_fully_qualified_domain_name" {

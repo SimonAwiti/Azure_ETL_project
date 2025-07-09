@@ -179,16 +179,16 @@ resource "azurerm_service_plan" "function_app_plan" {
 }
 
 # --- Azure Function App ---
-# The serverless compute service for event-driven applications.
-resource "azurerm_function_app" "main" {
+# Updated to use `azurerm_linux_function_app` as `azurerm_function_app` is deprecated.
+resource "azurerm_linux_function_app" "main" {
   name                       = var.function_app_name
   location                   = azurerm_resource_group.main.location
   resource_group_name        = azurerm_resource_group.main.name
-  app_service_plan_id        = azurerm_service_plan.function_app_plan.id # Reference updated plan
+  service_plan_id            = azurerm_service_plan.function_app_plan.id # Reference updated plan
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
-  os_type                    = "linux" # Corrected: changed "Linux" to "linux" (lowercase)
-  version                    = "~4"    # Function App runtime version (e.g., ~4 for .NET 6/7, Node 16/18, Python 3.9/3.10)
+  #os_type                    = "linux" # Corrected: changed "Linux" to "linux" (lowercase)
+  #version                    = "~4"    # Function App runtime version (e.g., ~4 for .NET 6/7, Node 16/18, Python 3.9/3.10)
 
   # VNet integration is now configured via the 'site_config' block
   site_config {
@@ -196,15 +196,18 @@ resource "azurerm_function_app" "main" {
     vnet_route_all_enabled = true # Route all outbound traffic through the VNet
   }
 
-  # Link the Function App to the subnet via a VNet Integration resource
-  # This is the correct way to associate a Function App with a subnet
-  # when the App Service Plan is not directly linked.
-  # The `virtual_network_subnet_id` argument is not a direct property of `azurerm_function_app`.
+  # `app_settings` block for runtime and other settings
+  app_settings = {
+    "FUNCTIONS_WORKER_RUNTIME"       = "node" # Example: "dotnet", "node", "python", "java", "powershell"
+    "WEBSITE_VNET_ROUTE_ALL"         = "1"    # Route all outbound traffic through the VNet
+    "APPINSIGHTS_INSTRUMENTATIONKEY" = ""     # Add Application Insights key if needed
+  }
 }
 
 # Resource to link the Function App to the subnet
+# Updated to reference `azurerm_linux_function_app`
 resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vnet_integration" {
-  app_service_id = azurerm_function_app.main.id
+  app_service_id = azurerm_linux_function_app.main.id
   subnet_id      = azurerm_subnet.app.id
 }
 
