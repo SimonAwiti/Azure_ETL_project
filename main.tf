@@ -169,13 +169,13 @@ resource "azurerm_storage_account" "function_app_storage" {
 
 # --- App Service Plan (for Function App) ---
 # Updated to use `azurerm_service_plan` as `azurerm_app_service_plan` is deprecated.
+# Removed 'kind' as it's not a configurable argument here.
 resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  kind                = "FunctionApp" # Specify FunctionApp kind for Function Apps
-  sku_name            = "Y1"          # Consumption plan SKU
-  os_type             = "Linux"       # Must match the Function App OS type
+  sku_name            = "Y1"    # Consumption plan SKU
+  os_type             = "Linux" # Must match the Function App OS type
 }
 
 # --- Azure Function App ---
@@ -210,34 +210,29 @@ resource "azurerm_app_service_virtual_network_swift_connection" "function_app_vn
 
 
 # --- Azure SQL Server ---
-# The logical server that hosts your SQL databases.
-resource "azurerm_sql_server" "main" {
+# Updated to use `azurerm_mssql_server` as `azurerm_sql_server` is deprecated.
+resource "azurerm_mssql_server" "main" {
   name                         = var.sql_server_name
   resource_group_name          = azurerm_resource_group.main.name
   location                     = azurerm_resource_group.main.location
   version                      = "12.0" # SQL Server version
   administrator_login          = var.sql_admin_login
   administrator_login_password = var.sql_admin_password
-  # `minimum_tls_version` is not a direct argument for `azurerm_sql_server` in recent provider versions.
-  # It's usually configured via `azurerm_sql_server_extended_auditing_policy` or server settings.
-  # `public_network_access_enabled` is also not a direct argument. Public access is controlled via firewall rules.
-  # To control public network access, you'd typically use `azurerm_sql_firewall_rule` or private endpoints.
+  # `minimum_tls_version` and `public_network_access_enabled` are not direct arguments here.
+  # Public access is controlled via firewall rules, and TLS version might be configured elsewhere.
 }
 
 # --- Azure SQL Database ---
 # The actual database instance within the SQL Server.
-resource "azurerm_sql_database" "main" {
+# Corrected: Use `server_id` and refer to the SQL Server's ID.
+resource "azurerm_mssql_database" "main" {
   name                = var.sql_database_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  # Corrected: Use `server_name` and refer to the SQL Server's name
-  server_name = azurerm_sql_server.main.name
-  collation   = "SQL_Latin1_General_CP1_CI_AS"
-  # Corrected: `sku_name` is part of a `sku` block
-  sku {
-    name = "Standard_S0" # Basic SKU for demonstration
-  }
-  max_size_gb = 2
+  server_id           = azurerm_mssql_server.main.id # Changed from server_name to server_id
+  collation           = "SQL_Latin1_General_CP1_CI_AS"
+  sku_name            = "Standard_S0" # Basic SKU for demonstration
+  max_size_gb         = 2
 }
 
 # --- Data Lake Gen2 Storage Account ---
@@ -250,3 +245,4 @@ resource "azurerm_storage_account" "datalake_gen2" {
   account_replication_type = "GRS" # Geo-Redundant Storage for higher durability
   is_hns_enabled           = true  # Enable hierarchical namespace for Data Lake Gen2
 }
+
