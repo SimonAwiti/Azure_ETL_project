@@ -117,7 +117,7 @@ resource "azurerm_network_security_group" "db_nsg" {
     source_address_prefix      = azurerm_subnet.app.address_prefixes[0] # Allow from App Subnet
     destination_address_prefix = "*"
   }
-  # Add more specific rules (e.g., allow from Synapse, deny all other inbound)
+
 }
 
 # NSG for Analytics Subnet
