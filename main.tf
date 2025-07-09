@@ -255,21 +255,6 @@ resource "azurerm_windows_function_app" "main" {
   }
 }
 
-# --- Basic Publishing Credentials Policies (from ARM template, for security) ---
-resource "azurerm_windows_web_app_basic_publishing_credentials_policy" "scm_policy" {
-  name                = azurerm_windows_function_app.main.name
-  resource_group_name = azurerm_resource_group.main.name
-  scm_type            = "scm"
-  allow               = false
-}
-
-resource "azurerm_windows_web_app_basic_publishing_credentials_policy" "ftp_policy" {
-  name                = azurerm_windows_function_app.main.name
-  resource_group_name = azurerm_resource_group.main.name
-  scm_type            = "ftp"
-  allow               = false
-}
-
 
 # --- Azure IoT Hub ---
 resource "azurerm_iothub" "main" {
