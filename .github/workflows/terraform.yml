@@ -70,7 +70,7 @@ jobs:
       #   This ensures the deployment always targets 'australiacentral' regardless of variables.tf default.
       id: plan # Assigns an ID to this step to access its outputs
       run: |
-        terraform plan -input=false -out=tfplan -var 'location=South Africa North'
+        terraform plan -input=false -out=tfplan -var 'location=West India'
         # Capture a summary of the plan using a multi-line string literal for GITHUB_OUTPUT
         # This is more robust for multi-line outputs like 'terraform show'
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
