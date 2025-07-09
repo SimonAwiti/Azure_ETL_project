@@ -198,7 +198,7 @@ resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan" # Use the hostingPlanName from parameters
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "P1v2"    # Using P1v2 as per previous discussion, adjust if your ARM uses Y1 Dynamic
+  sku_name            = "Y1"      # Using P1v2 as per previous discussion, adjust if your ARM uses Y1 Dynamic
   os_type             = "Windows" # Assuming Windows as per your ARM template's "dotnet-isolated" runtime
 
   # These properties are typically part of an App Service Plan for scaling
@@ -468,7 +468,7 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   log {
-    category = "SQLInsights"
+    category = "SQLSecurityAuditEvents"
     retention_policy {
       enabled = true
       days    = 30
@@ -624,7 +624,7 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "D2CTelemetryErrors" # Corrected metric name based on common IoT Hub metrics
+    metric_name      = "d2c.telemetry.egress.invalid" # Corrected metric name based on common IoT Hub metrics
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 0
