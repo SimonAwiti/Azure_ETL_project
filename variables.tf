@@ -145,3 +145,26 @@ variable "admin_email_for_alerts" {
   type        = string
   default     = "awitisimon23@gmail.com"
 }
+variable "hosting_plan_name" {
+  description = "Name of the App Service Plan for the Function App."
+  type        = string
+  # Default should match the parameter from your ARM if possible, e.g., "ASP-rgraetlarchitecturedemo-8e87"
+}
+
+variable "use_32_bit_worker_process" {
+  description = "Should the Function App use a 32-bit worker process?"
+  type        = bool
+  default     = false # As per your ARM template
+}
+
+variable "ftps_state" {
+  description = "The state of the FTPS endpoint for the Function App."
+  type        = string
+  default     = "FtpsOnly" # As per your ARM template
+}
+
+variable "net_framework_version" {
+  description = "The .NET Framework version for the Function App."
+  type        = string
+  default     = "v8.0" # As per your ARM template for dotnet-isolated
+}

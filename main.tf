@@ -93,7 +93,7 @@ resource "azurerm_network_security_group" "app_nsg" {
     protocol                   = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
-    source_address_prefix      = "AzureIoTHub" # Corrected Service Tag
+    source_address_prefix      = "AzureIoTHub"
     destination_address_prefix = "*"
     description                = "Allow traffic from IoT Hub's Event Hub endpoint"
   }
@@ -107,7 +107,7 @@ resource "azurerm_network_security_group" "app_nsg" {
     source_port_range          = "*"
     destination_port_range     = "1433"
     source_address_prefix      = azurerm_subnet.app.address_prefixes[0]
-    destination_address_prefix = azurerm_subnet.db.address_prefixes[0] # Allow outbound to DB Subnet
+    destination_address_prefix = azurerm_subnet.db.address_prefixes[0]
     description                = "Allow outbound to Azure SQL DB Private Endpoint"
   }
 
@@ -116,11 +116,11 @@ resource "azurerm_network_security_group" "app_nsg" {
     priority                   = 104
     direction                  = "Outbound"
     access                     = "Allow"
-    protocol                   = "Tcp" # Or use "*" for all protocols if needed
+    protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "443" # HTTPS for storage operations
+    destination_port_range     = "443"
     source_address_prefix      = azurerm_subnet.app.address_prefixes[0]
-    destination_address_prefix = azurerm_subnet.datalake.address_prefixes[0] # Allow outbound to Data Lake Subnet
+    destination_address_prefix = azurerm_subnet.datalake.address_prefixes[0]
     description                = "Allow outbound to Data Lake Gen2 Private Endpoint"
   }
 }
@@ -189,53 +189,86 @@ resource "azurerm_storage_account" "function_app_storage" {
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
-  account_replication_type = "LRS"    # Locally Redundant Storage for cost-effectiveness
-  min_tls_version          = "TLS1_2" # Enforce TLS 1.2 for security
+  account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
 }
 
 # --- App Service Plan (for Function App) ---
 resource "azurerm_service_plan" "function_app_plan" {
-  name                = "${var.function_app_name}-plan"
+  name                = var.hosting_plan_name # Use the hostingPlanName from parameters
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "P1v2"
-  os_type             = "Windows"
+  sku_name            = "P1v2"    # Using P1v2 as per previous discussion, adjust if your ARM uses Y1 Dynamic
+  os_type             = "Windows" # Assuming Windows as per your ARM template's "dotnet-isolated" runtime
+
+  # These properties are typically part of an App Service Plan for scaling
+  # ARM template uses 'workerSize', 'workerSizeId', 'numberOfWorkers' directly on the plan.
+  # Terraform's azurerm_service_plan handles this via sku_name which defines the tier and size.
+  # If you need to map specific workerSize, workerSizeId, numberOfWorkers from ARM to Terraform,
+  # you'd select the appropriate sku_name (e.g., "P1v2" implies a certain workerSize).
+  # If you are using Consumption (Y1 Dynamic), then sku_name should be "Y1".
+  # For Consumption plan, os_type should be Linux for Node.js, but Windows is supported for .NET Isolated.
+  # Let's align with the ARM template's SKU if you want a Consumption plan for the Function App.
+  # If "Dynamic" sku, then sku_name should be "Y1".
+  # If "PremiumV2" as we discussed, keep "P1v2". The quota error points to PremiumV2.
+  # So, let's assume P1v2 is the desired target.
 }
 
 # --- Azure Function App (Windows) ---
-# Changed resource type from azurerm_function_app to azurerm_windows_function_app
 resource "azurerm_windows_function_app" "main" {
   name                       = var.function_app_name
   location                   = azurerm_resource_group.main.location
   resource_group_name        = azurerm_resource_group.main.name
-  service_plan_id            = azurerm_service_plan.function_app_plan.id # Use service_plan_id for azurerm_windows_function_app
+  service_plan_id            = azurerm_service_plan.function_app_plan.id
   storage_account_name       = azurerm_storage_account.function_app_storage.name
   storage_account_access_key = azurerm_storage_account.function_app_storage.primary_access_key
-  virtual_network_subnet_id  = azurerm_subnet.app.id # VNet integration handled directly here
+  virtual_network_subnet_id  = azurerm_subnet.app.id
+  https_only                 = true  # From ARM template
+  client_affinity_enabled    = false # From ARM template
+  # The ARM template explicitly sets these:
+  use_32_bit_worker_process = var.use_32_bit_worker_process # From ARM parameters
+  ftps_state                = var.ftps_state                # From ARM parameters
+  # auto_generated_domain_name_label_scope = var.auto_generated_domain_name_label_scope # Only if supported by azurerm_windows_function_app
 
   site_config {
-    vnet_route_all_enabled = true # Route all outbound traffic through the VNet
-    # client_affinity_enabled is not typically set here for azurerm_windows_function_app
+    vnet_route_all_enabled = true
+    # For dotnet-isolated, net_framework_version isn't a direct site_config property.
+    # It's usually inferred or set via app settings.
   }
 
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"              = "node"
-    "WEBSITE_NODE_DEFAULT_VERSION"          = "18" # Explicitly set Node.js version for Windows
-    "WEBSITE_VNET_ROUTE_ALL"                = "1"
-    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.main.instrumentation_key
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-    # Use the standard FQDN for SQL Server; Private DNS Zone will handle private resolution
-    "SQL_CONNECTION_STRING" = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Authentication=Active Directory Integrated;" # Managed Identity
-    # Use the standard DFS endpoint for Data Lake Gen2; Private DNS Zone will handle private resolution
-    "DATALAKE_ACCOUNT_NAME" = azurerm_storage_account.datalake_gen2.name
-    "DATALAKE_DFS_ENDPOINT" = azurerm_storage_account.datalake_gen2.primary_dfs_endpoint
+    "FUNCTIONS_EXTENSION_VERSION"            = "~4"
+    "FUNCTIONS_WORKER_RUNTIME"               = "dotnet-isolated" # Align with ARM template
+    "WEBSITE_USE_PLACEHOLDER_DOTNETISOLATED" = "1"
+    "AzureWebJobsSecretStorageType"          = "files"
+    "APPINSIGHTS_INSTRUMENTATIONKEY"         = azurerm_application_insights.main.instrumentation_key
+    "APPLICATIONINSIGHTS_CONNECTION_STRING"  = azurerm_application_insights.main.connection_string
+    "SQL_CONNECTION_STRING"                  = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_mssql_database.main.name};Authentication=Active Directory Integrated;"
+    "DATALAKE_ACCOUNT_NAME"                  = azurerm_storage_account.datalake_gen2.name
+    "DATALAKE_DFS_ENDPOINT"                  = azurerm_storage_account.datalake_gen2.primary_dfs_endpoint
+    "WEBSITE_VNET_ROUTE_ALL"                 = "1"                       # Already set in site_config but good to have here too
+    "WEBSITE_CURRENT_RUNTIME"                = "dotnet-isolated"         # Explicit runtime in case WEBSITE_NODE_DEFAULT_VERSION was causing issues
+    "WEBSITE_NET_FRAMEWORK_VERSION"          = var.net_framework_version # From ARM parameters
   }
   identity {
-    type = "SystemAssigned" # Enable Managed Identity for the Function App
+    type = "SystemAssigned"
   }
 }
 
-# Removed azurerm_app_service_virtual_network_swift_connection as it's now handled by virtual_network_subnet_id in azurerm_windows_function_app
+# --- Basic Publishing Credentials Policies (from ARM template, for security) ---
+resource "azurerm_windows_web_app_basic_publishing_credentials_policy" "scm_policy" {
+  name                = azurerm_windows_function_app.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  scm_type            = "scm"
+  allow               = false
+}
+
+resource "azurerm_windows_web_app_basic_publishing_credentials_policy" "ftp_policy" {
+  name                = azurerm_windows_function_app.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  scm_type            = "ftp"
+  allow               = false
+}
 
 
 # --- Azure IoT Hub ---
@@ -258,7 +291,7 @@ resource "azurerm_iothub" "main" {
 resource "azurerm_iothub_consumer_group" "function_app_consumer_group" {
   name                   = var.iot_hub_consumer_group_name
   iothub_name            = azurerm_iothub.main.name
-  eventhub_endpoint_name = "events" # Built-in Event Hub endpoint for telemetry
+  eventhub_endpoint_name = "events"
   resource_group_name    = azurerm_resource_group.main.name
 }
 
@@ -272,7 +305,7 @@ resource "azurerm_mssql_server" "main" {
   administrator_login           = var.sql_admin_login
   administrator_login_password  = var.sql_admin_password
   minimum_tls_version           = "1.2"
-  public_network_access_enabled = false # Disable public access, rely on Private Endpoint
+  public_network_access_enabled = false
 }
 
 # --- Azure SQL Database ---
@@ -328,7 +361,7 @@ resource "azurerm_storage_account" "datalake_gen2" {
   account_replication_type      = "GRS"
   is_hns_enabled                = true
   min_tls_version               = "TLS1_2"
-  public_network_access_enabled = false # Disable public access, rely on Private Endpoint
+  public_network_access_enabled = false
 }
 
 # --- Private Endpoint for Data Lake Gen2 Storage Account (Blob) ---
@@ -424,10 +457,9 @@ resource "azurerm_application_insights" "main" {
 # Diagnostic Settings to send logs/metrics to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   name                       = "function-app-diag-settings"
-  target_resource_id         = azurerm_windows_function_app.main.id # Updated resource reference
+  target_resource_id         = azurerm_windows_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' and 'metric' blocks
   log {
     category = "FunctionAppLogs"
     retention_policy {
@@ -450,7 +482,6 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' and 'metric' blocks
   log {
     category = "SQLInsights"
     retention_policy {
@@ -473,7 +504,6 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' and 'metric' blocks
   log {
     category = "Connections"
     retention_policy {
@@ -510,7 +540,6 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' and 'metric' blocks (only metrics were configured previously)
   metric {
     category = "Transaction"
     retention_policy {
@@ -531,7 +560,7 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
 resource "azurerm_monitor_action_group" "main" {
   name                = var.action_group_name
   resource_group_name = azurerm_resource_group.main.name
-  short_name          = var.action_group_short_name # Ensure this variable is 1-12 characters in variables.tf
+  short_name          = var.action_group_short_name
 
   email_receiver {
     name          = "admin_email"
@@ -545,7 +574,7 @@ resource "azurerm_monitor_action_group" "main" {
 resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
   name                     = "func-app-http-5xx-errors-alert"
   resource_group_name      = azurerm_resource_group.main.name
-  scopes                   = [azurerm_windows_function_app.main.id] # Updated resource reference
+  scopes                   = [azurerm_windows_function_app.main.id]
   description              = "Alert when Function App experiences high rate of HTTP 5xx errors."
   target_resource_type     = "Microsoft.Web/sites"
   target_resource_location = azurerm_resource_group.main.location
@@ -610,7 +639,7 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "Errors"
+    metric_name      = "D2CTelemetryErrors" # Corrected metric name based on common IoT Hub metrics
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 0
