@@ -93,7 +93,7 @@ resource "azurerm_network_security_group" "app_nsg" {
     protocol                   = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
-    source_address_prefix      = "AzureEventHub" # Allow traffic from Azure Event Hubs (used by IoT Hub)
+    source_address_prefix      = "AzureIoTHub" # Corrected Service Tag
     destination_address_prefix = "*"
     description                = "Allow traffic from IoT Hub's Event Hub endpoint"
   }
@@ -143,19 +143,7 @@ resource "azurerm_network_security_group" "db_nsg" {
     destination_address_prefix = "*"
     description                = "Deny all inbound traffic by default, Private Endpoint will bypass NSG for SQL traffic"
   }
-
-  security_rule {
-    name                       = "AllowAzurePlatform"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "AzurePlatformDNS" # Needed for Private Endpoint DNS resolution
-    destination_address_prefix = "*"
-    description                = "Allow Azure platform traffic for Private Endpoint"
-  }
+  # Removed "AllowAzurePlatform" rule as it's not a valid service tag for NSG source
 }
 
 # NSG for Data Lake Subnet - Primarily for Private Endpoint, very restrictive
@@ -176,19 +164,7 @@ resource "azurerm_network_security_group" "datalake_nsg" {
     destination_address_prefix = "*"
     description                = "Deny all inbound traffic by default, Private Endpoint will bypass NSG for storage traffic"
   }
-
-  security_rule {
-    name                       = "AllowAzurePlatform"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "AzurePlatformDNS" # Needed for Private Endpoint DNS resolution
-    destination_address_prefix = "*"
-    description                = "Allow Azure platform traffic for Private Endpoint"
-  }
+  # Removed "AllowAzurePlatform" rule as it's not a valid service tag for NSG source
 }
 
 # --- Subnet NSG Associations ---
@@ -224,8 +200,8 @@ resource "azurerm_service_plan" "function_app_plan" {
   name                = "${var.function_app_name}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "Y1"    # Consumption plan SKU for cost optimization
-  os_type             = "Linux" # Must match the Function App OS type
+  sku_name            = "EP1" # Changed from "Y1" to Elastic Premium for VNet integration
+  os_type             = "Linux"
 }
 
 # --- Azure Function App ---
@@ -452,18 +428,14 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   target_resource_id         = azurerm_linux_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' block with 'enabled = true'
   log {
     category = "FunctionAppLogs"
     enabled  = true
-    # retention_policy {} not used as it was deprecated in 3.0
   }
 
-  # Reverted to 'metric' block with 'enabled = true'
   metric {
     category = "AllMetrics"
     enabled  = true
-    # retention_policy {} not used as it was deprecated in 3.0
   }
 }
 
@@ -472,9 +444,8 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' block with 'enabled = true'
   log {
-    category = "SQLSecurityAudit"
+    category = "Auditing" # Corrected category for SQL Server
     enabled  = true
   }
   log {
@@ -482,7 +453,6 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
     enabled  = true
   }
 
-  # Reverted to 'metric' block with 'enabled = true'
   metric {
     category = "AllMetrics"
     enabled  = true
@@ -494,7 +464,6 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' block with 'enabled = true'
   log {
     category = "Connections"
     enabled  = true
@@ -508,7 +477,6 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
     enabled  = true
   }
 
-  # Reverted to 'metric' block with 'enabled = true'
   metric {
     category = "AllMetrics"
     enabled  = true
@@ -520,21 +488,12 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Reverted to 'log' block with 'enabled = true'
   log {
-    category = "StorageRead"
+    category = "StorageBlobLogs" # Corrected category for Data Lake Gen2 (Blob service)
     enabled  = true
   }
-  log {
-    category = "StorageWrite"
-    enabled  = true
-  }
-  log {
-    category = "StorageDelete"
-    enabled  = true
-  }
+  # Removed individual StorageRead, StorageWrite, StorageDelete logs, as StorageBlobLogs covers them
 
-  # Reverted to 'metric' block with 'enabled = true'
   metric {
     category = "Transaction"
     enabled  = true
@@ -549,7 +508,7 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
 resource "azurerm_monitor_action_group" "main" {
   name                = var.action_group_name
   resource_group_name = azurerm_resource_group.main.name
-  short_name          = var.action_group_short_name
+  short_name          = var.action_group_short_name # Ensure this variable is 1-12 characters in variables.tf
 
   email_receiver {
     name          = "admin_email"
@@ -573,7 +532,7 @@ resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.web/sites"
-    metric_name      = "Http5xxErrors"
+    metric_name      = "Http5xx" # Corrected metric name
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 5
@@ -628,7 +587,7 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "d2c.telemetry.ingress.errors"
+    metric_name      = "D2CMessageErrors" # Corrected metric name
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 0
