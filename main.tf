@@ -452,14 +452,18 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
   target_resource_id         = azurerm_linux_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Removed 'enabled = true' from inside the block
-  enabled_log {
+  # Reverted to 'log' block with 'enabled = true'
+  log {
     category = "FunctionAppLogs"
+    enabled  = true
+    # retention_policy {} not used as it was deprecated in 3.0
   }
 
-  # Removed 'enabled = true' from inside the block
-  enabled_metric {
+  # Reverted to 'metric' block with 'enabled = true'
+  metric {
     category = "AllMetrics"
+    enabled  = true
+    # retention_policy {} not used as it was deprecated in 3.0
   }
 }
 
@@ -468,17 +472,20 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Removed 'enabled = true' from inside the block
-  enabled_log {
+  # Reverted to 'log' block with 'enabled = true'
+  log {
     category = "SQLSecurityAudit"
+    enabled  = true
   }
-  enabled_log {
+  log {
     category = "AutomaticTuning"
+    enabled  = true
   }
 
-  # Removed 'enabled = true' from inside the block
-  enabled_metric {
+  # Reverted to 'metric' block with 'enabled = true'
+  metric {
     category = "AllMetrics"
+    enabled  = true
   }
 }
 
@@ -487,20 +494,24 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Removed 'enabled = true' from inside the block
-  enabled_log {
+  # Reverted to 'log' block with 'enabled = true'
+  log {
     category = "Connections"
+    enabled  = true
   }
-  enabled_log {
+  log {
     category = "DeviceTelemetry"
+    enabled  = true
   }
-  enabled_log {
+  log {
     category = "C2DCommands"
+    enabled  = true
   }
 
-  # Removed 'enabled = true' from inside the block
-  enabled_metric {
+  # Reverted to 'metric' block with 'enabled = true'
+  metric {
     category = "AllMetrics"
+    enabled  = true
   }
 }
 
@@ -509,23 +520,28 @@ resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  # Removed 'enabled = true' from inside the block
-  enabled_log {
+  # Reverted to 'log' block with 'enabled = true'
+  log {
     category = "StorageRead"
+    enabled  = true
   }
-  enabled_log {
+  log {
     category = "StorageWrite"
+    enabled  = true
   }
-  enabled_log {
+  log {
     category = "StorageDelete"
+    enabled  = true
   }
 
-  # Removed 'enabled = true' from inside the block
-  enabled_metric {
+  # Reverted to 'metric' block with 'enabled = true'
+  metric {
     category = "Transaction"
+    enabled  = true
   }
-  enabled_metric {
+  metric {
     category = "Capacity"
+    enabled  = true
   }
 }
 
