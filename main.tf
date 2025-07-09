@@ -584,10 +584,10 @@ resource "azurerm_monitor_metric_alert" "iot_hub_telemetry_errors_alert" {
 
   criteria {
     metric_namespace = "microsoft.devices/iothubs"
-    metric_name      = "TelemetryErrors" # Corrected metric name
+    metric_name      = "IncomingMessages" # Corrected metric name
     aggregation      = "Total"
-    operator         = "GreaterThan"
-    threshold        = 0
+    operator         = "LessThan"
+    threshold        = 100
   }
 
   action {
