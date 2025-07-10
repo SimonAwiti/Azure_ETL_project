@@ -447,18 +447,10 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
 
   log {
     category = "FunctionAppLogs"
-    retention_policy {
-      enabled = true
-      days    = 30
-    }
   }
 
   metric {
     category = "AllMetrics"
-    retention_policy {
-      enabled = true
-      days    = 30
-    }
   }
 }
 
@@ -468,19 +460,14 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   log {
-    category = "SQLInsights"
-    retention_policy {
-      enabled = true
-      days    = 30
-    }
+    category = "AutomaticTuning"
+
   }
+
 
   metric {
     category = "AllMetrics"
-    retention_policy {
-      enabled = true
-      days    = 30
-    }
+
   }
 }
 
@@ -573,11 +560,6 @@ resource "azurerm_monitor_metric_alert" "function_app_http_errors_alert" {
     aggregation      = "Total"
     operator         = "GreaterThan"
     threshold        = 5
-    dimension {
-      name     = "Host"
-      operator = "Include"
-      values   = ["*"]
-    }
   }
 
   action {
