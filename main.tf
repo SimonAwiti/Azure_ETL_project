@@ -441,6 +441,7 @@ resource "azurerm_application_insights" "main" {
 
 # Diagnostic Settings to send logs/metrics to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
+  count                      = 0
   name                       = "function-app-diag-settings"
   target_resource_id         = azurerm_windows_function_app.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
@@ -455,6 +456,7 @@ resource "azurerm_monitor_diagnostic_setting" "function_app_diag" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
+  count                      = 0
   name                       = "sql-server-diag-settings"
   target_resource_id         = azurerm_mssql_server.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
@@ -472,6 +474,7 @@ resource "azurerm_monitor_diagnostic_setting" "sql_server_diag" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
+  count                      = 0
   name                       = "iot-hub-diag-settings"
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
@@ -508,6 +511,7 @@ resource "azurerm_monitor_diagnostic_setting" "iot_hub_diag" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "datalake_diag" {
+  count                      = 0
   name                       = "datalake-diag-settings"
   target_resource_id         = azurerm_storage_account.datalake_gen2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
